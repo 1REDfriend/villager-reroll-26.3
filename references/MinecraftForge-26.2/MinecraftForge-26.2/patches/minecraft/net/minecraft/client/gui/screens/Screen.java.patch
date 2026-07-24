@@ -1,0 +1,62 @@
+--- a/net/minecraft/client/gui/screens/Screen.java
++++ b/net/minecraft/client/gui/screens/Screen.java
+@@ -196,7 +_,7 @@
+     }
+ 
+     public void onClose() {
+-        this.minecraft.gui.setScreen(null);
++        this.minecraft.gui.popLayer();
+     }
+ 
+     protected <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(final T widget) {
+@@ -327,8 +_,10 @@
+         this.width = width;
+         this.height = height;
+         if (!this.initialized) {
++            if (!net.minecraftforge.client.event.ScreenEvent.Init.Pre.BUS.post(new net.minecraftforge.client.event.ScreenEvent.Init.Pre(this, this.children, this::addEventWidget, this::removeWidget)))
+             this.init();
+             this.setInitialFocus();
++            net.minecraftforge.client.event.ScreenEvent.Init.Post.BUS.post(new net.minecraftforge.client.event.ScreenEvent.Init.Post(this, this.children, this::addEventWidget, this::removeWidget));
+         } else {
+             this.repositionElements();
+         }
+@@ -345,8 +_,10 @@
+     protected void rebuildWidgets() {
+         this.clearWidgets();
+         this.clearFocus();
++        if (!net.minecraftforge.client.event.ScreenEvent.Init.Pre.BUS.post(new net.minecraftforge.client.event.ScreenEvent.Init.Pre(this, this.children, this::addEventWidget, this::removeWidget)))
+         this.init();
+         this.setInitialFocus();
++        net.minecraftforge.client.event.ScreenEvent.Init.Post.BUS.post(new net.minecraftforge.client.event.ScreenEvent.Init.Post(this, this.children, this::addEventWidget, this::removeWidget));
+     }
+ 
+     protected void fadeWidgets(final float widgetFade) {
+@@ -386,6 +_,8 @@
+             this.extractMenuBackground(graphics);
+         }
+ 
++        net.minecraftforge.client.event.ForgeEventFactoryClient.onRenderScreenBackground(this, graphics);
++
+         this.minecraft.gui.hud.extractDeferredSubtitles();
+     }
+ 
+@@ -471,6 +_,19 @@
+     }
+ 
+     public void onFilesDrop(final List<Path> files) {
++    }
++
++    @Nullable
++    public Minecraft getMinecraft() {
++        return minecraft;
++    }
++
++    private void addEventWidget(GuiEventListener guiEventListener) {
++        if (guiEventListener instanceof Renderable r)
++            this.renderables.add(r);
++        if (guiEventListener instanceof NarratableEntry ne)
++            this.narratables.add(ne);
++        this.children.add(guiEventListener);
+     }
+ 
+     private void scheduleNarration(final long delay, final boolean ignoreSuppression) {

@@ -1,0 +1,20 @@
+--- a/net/minecraft/client/gui/screens/MenuScreens.java
++++ b/net/minecraft/client/gui/screens/MenuScreens.java
+@@ -41,11 +_,16 @@
+     private static final Map<MenuType<?>, MenuScreens.ScreenConstructor<?, ?>> SCREENS = Maps.newHashMap();
+ 
+     public static <T extends AbstractContainerMenu> void create(final MenuType<T> type, final Minecraft minecraft, final int containerId, final Component title) {
++        getScreenFactory(type, minecraft, containerId, title).ifPresent(f -> f.fromPacket(title, type, minecraft, containerId));
++    }
++
++    public static <T extends AbstractContainerMenu> java.util.Optional<ScreenConstructor<T, ?>> getScreenFactory(@Nullable MenuType<T> type, Minecraft minecraft, int containerId, Component title) {
+         MenuScreens.ScreenConstructor<T, ?> constructor = getConstructor(type);
+         if (constructor == null) {
+             LOGGER.warn("Failed to create screen for menu type: {}", BuiltInRegistries.MENU.getKey(type));
++            return java.util.Optional.empty();
+         } else {
+-            constructor.fromPacket(title, type, minecraft, containerId);
++            return java.util.Optional.of(constructor);
+         }
+     }
+ 

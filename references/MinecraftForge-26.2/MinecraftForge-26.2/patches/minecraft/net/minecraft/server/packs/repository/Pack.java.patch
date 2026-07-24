@@ -1,0 +1,50 @@
+--- a/net/minecraft/server/packs/repository/Pack.java
++++ b/net/minecraft/server/packs/repository/Pack.java
+@@ -24,6 +_,7 @@
+     private final Pack.ResourcesSupplier resources;
+     private final Pack.Metadata metadata;
+     private final PackSelectionConfig selectionConfig;
++    private final boolean hidden; // Forge: Allow packs to be hidden from the UI entirely
+ 
+     public static @Nullable Pack readMetaAndCreate(
+         final PackLocationInfo location, final Pack.ResourcesSupplier resources, final PackType packType, final PackSelectionConfig selectionConfig
+@@ -40,6 +_,7 @@
+         this.resources = resources;
+         this.metadata = metadata;
+         this.selectionConfig = selectionConfig;
++        this.hidden = metadata.isHidden();
+     }
+ 
+     public static Pack.@Nullable Metadata readPackMetadata(
+@@ -63,7 +_,7 @@
+                 PackCompatibility packCompatibility = PackCompatibility.forVersion(meta.supportedFormats(), currentPackVersion);
+                 OverlayMetadataSection overlays = pack.getMetadataSection(OverlayMetadataSection.forPackType(type));
+                 List<String> overlaySet = overlays != null ? overlays.overlaysForVersion(currentPackVersion) : List.of();
+-                return new Pack.Metadata(meta.description(), packCompatibility, requiredFlags, overlaySet);
++                return new Pack.Metadata(meta.description(), packCompatibility, requiredFlags, overlaySet, pack.isHidden());
+             }
+         } catch (Exception e) {
+             LOGGER.warn("Failed to read pack {} metadata", location.id(), e);
+@@ -123,6 +_,10 @@
+         return this.location.source();
+     }
+ 
++    public boolean isHidden() {
++        return this.hidden;
++    }
++
+     @Override
+     public boolean equals(final Object o) {
+         if (this == o) {
+@@ -137,7 +_,10 @@
+         return this.location.hashCode();
+     }
+ 
+-    public record Metadata(Component description, PackCompatibility compatibility, FeatureFlagSet requestedFeatures, List<String> overlays) {
++    public record Metadata(Component description, PackCompatibility compatibility, FeatureFlagSet requestedFeatures, List<String> overlays, boolean isHidden) {
++        public Metadata(Component description, PackCompatibility compatibility, FeatureFlagSet requestedFeatures, List<String> overlays) {
++            this(description, compatibility, requestedFeatures, overlays, false);
++        }
+     }
+ 
+     public enum Position {

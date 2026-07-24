@@ -1,0 +1,11 @@
+--- a/net/minecraft/core/registries/Registries.java
++++ b/net/minecraft/core/registries/Registries.java
+@@ -326,6 +_,8 @@
+     }
+ 
+     private static String registryDirPath(final ResourceKey<? extends Registry<?>> registryKey) {
++        if (!registryKey.identifier().getNamespace().equals("minecraft"))
++            return registryKey.identifier().getNamespace() + '/' + registryKey.identifier().getPath();
+         return registryKey.identifier().getPath();
+     }
+ 

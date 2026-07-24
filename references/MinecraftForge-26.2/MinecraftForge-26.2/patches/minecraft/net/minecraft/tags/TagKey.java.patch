@@ -1,0 +1,13 @@
+--- a/net/minecraft/tags/TagKey.java
++++ b/net/minecraft/tags/TagKey.java
+@@ -38,6 +_,10 @@
+         return (TagKey<T>)VALUES.intern(new TagKey<>(registry, location));
+     }
+ 
++    public static <T> TagKey<T> create(ResourceKey<? extends Registry<T>> registry, String namespace, String path) {
++        return create(registry, Identifier.fromNamespaceAndPath(namespace, path));
++    }
++
+     public boolean isFor(final ResourceKey<? extends Registry<?>> registry) {
+         return this.registry == registry;
+     }

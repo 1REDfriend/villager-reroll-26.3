@@ -1,0 +1,40 @@
+--- a/net/minecraft/world/entity/player/Inventory.java
++++ b/net/minecraft/world/entity/player/Inventory.java
+@@ -91,6 +_,10 @@
+         return this.items;
+     }
+ 
++    public EntityEquipment getEquipment() {
++        return this.equipment;
++    }
++
+     private boolean hasRemainingSpaceForItem(final ItemStack slotItemStack, final ItemStack newItemStack) {
+         return !slotItemStack.isEmpty()
+             && ItemStack.isSameItemSameComponents(slotItemStack, newItemStack)
+@@ -169,7 +_,7 @@
+ 
+         for (int slot = 0; slot < 9; slot++) {
+             int index = (this.selected + slot) % 9;
+-            if (!this.items.get(index).isEnchanted()) {
++            if (!this.items.get(index).isNotReplaceableByPickAction(this.player, index)) {
+                 return index;
+             }
+         }
+@@ -242,7 +_,7 @@
+         for (int i = 0; i < this.items.size(); i++) {
+             ItemStack itemStack = this.getItem(i);
+             if (!itemStack.isEmpty()) {
+-                itemStack.inventoryTick(this.player.level(), this.player, i == this.selected ? EquipmentSlot.MAINHAND : null);
++                itemStack.inventoryTick(this.player.level(), this.player, i == this.selected ? EquipmentSlot.MAINHAND : null, i);
+             }
+         }
+     }
+@@ -293,6 +_,8 @@
+         } catch (Throwable t) {
+             CrashReport report = CrashReport.forThrowable(t, "Adding item to inventory");
+             CrashReportCategory category = report.addCategory("Item being added");
++            category.setDetail("Registry Name", () -> String.valueOf(net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(itemStack.getItem())));
++            category.setDetail("Item Class", () -> itemStack.getItem().getClass().getName());
+             category.setDetail("Item ID", Item.getId(itemStack.getItem()));
+             category.setDetail("Item data", itemStack.getDamageValue());
+             category.setDetail("Item name", () -> itemStack.getHoverName().getString());

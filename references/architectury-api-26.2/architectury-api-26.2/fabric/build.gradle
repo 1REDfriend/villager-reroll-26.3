@@ -1,0 +1,143 @@
+apply plugin: "com.gradleup.shadow"
+apply plugin: "me.shedaniel.unified-publishing"
+
+loom {
+    accessWidenerPath = project(":common").loom.accessWidenerPath
+    injectAccessWidener(tasks.named('jar'))
+}
+
+architectury {
+    platformSetupLoomIde()
+    fabric()
+}
+
+configurations {
+    common
+    shadowCommon
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentFabric.extendsFrom common
+}
+
+repositories {
+    maven { url "https://maven.terraformersmc.com/releases/" }
+}
+
+dependencies {
+    api "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    api "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    compileOnly("com.terraformersmc:modmenu:${rootProject.mod_menu_version}") { transitive false }
+
+    common(project(path: ":common")) { transitive false }
+    shadowCommon(project(path: ":common", configuration: "transformProductionFabric")) { transitive false }
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+jar {
+    archiveClassifier = "raw"
+}
+
+shadowJar {
+    exclude "architectury.common.json"
+
+    dependsOn jar
+    mainSpec.sourcePaths.clear()
+    from(zipTree(jar.archiveFile))
+    configurations = [project.configurations.shadowCommon]
+    archiveClassifier = null
+    zip64 = true
+    from rootProject.file("LICENSE.md")
+}
+
+assemble.dependsOn shadowJar
+
+configurations {
+    apiElements {
+        outgoing.artifacts.clear()
+        outgoing.artifact(shadowJar)
+    }
+    runtimeElements {
+        outgoing.artifacts.clear()
+        outgoing.artifact(shadowJar)
+    }
+}
+
+sourcesJar {
+    afterEvaluate {
+        def depSources = project(":common").sourcesJar
+        dependsOn depSources
+        from(depSources.archiveFile.map { zipTree(it) }) {
+            exclude "architectury.accessWidener"
+        }
+    }
+}
+
+components.java {
+    addVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {}
+    withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
+        skip()
+    }
+}
+
+publishing {
+    publications {
+        mavenFabric(MavenPublication) {
+            artifactId = rootProject.archivesBaseName + "-fabric"
+            from components.java
+        }
+    }
+
+    repositories {
+        if (System.getenv("MAVEN_PASS") != null) {
+            maven {
+                url = "https://deploy.shedaniel.me/"
+                credentials {
+                    username = "shedaniel"
+                    password = System.getenv("MAVEN_PASS")
+                }
+            }
+        }
+    }
+}
+
+unifiedPublishing {
+    project {
+        displayName = "[Fabric $rootProject.supported_version] v$project.version"
+        releaseType = "$rootProject.artifact_type"
+        changelog = releaseChangelog()
+        gameVersions = []
+        gameLoaders = ["fabric"]
+        mainPublication shadowJar
+        relations {
+            depends {
+                curseforge = "fabric-api"
+                modrinth = "fabric-api"
+            }
+        }
+
+        var CURSE_API_KEY = project.findProperty("CURSE_API_KEY") ?: System.getenv("CURSE_API_KEY")
+        if (CURSE_API_KEY != null) {
+            curseforge {
+                token = CURSE_API_KEY
+                id = rootProject.curseforge_id
+                gameVersions.addAll "Java 25", project.minecraft_version
+            }
+        }
+
+        var MODRINTH_TOKEN = project.findProperty("MODRINTH_TOKEN") ?: System.getenv("MODRINTH_TOKEN")
+        if (MODRINTH_TOKEN != null) {
+            modrinth {
+                token = MODRINTH_TOKEN
+                id = rootProject.modrinth_id
+                version = "$project.version+$project.name"
+                gameVersions.addAll project.minecraft_version
+            }
+        }
+    }
+}

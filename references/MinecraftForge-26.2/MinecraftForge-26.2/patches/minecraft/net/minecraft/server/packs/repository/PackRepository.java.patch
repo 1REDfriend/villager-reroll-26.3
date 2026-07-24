@@ -1,0 +1,22 @@
+--- a/net/minecraft/server/packs/repository/PackRepository.java
++++ b/net/minecraft/server/packs/repository/PackRepository.java
+@@ -23,7 +_,7 @@
+     private List<Pack> selected = ImmutableList.of();
+ 
+     public PackRepository(final RepositorySource... sources) {
+-        this.sources = ImmutableSet.copyOf(sources);
++        this.sources = new java.util.LinkedHashSet<>(List.of(sources)); //Forge: This needs to be a mutable set, so that we can add to it later on.
+     }
+ 
+     public static String displayPackList(final Collection<Pack> packs) {
+@@ -117,6 +_,10 @@
+ 
+     public @Nullable Pack getPack(final String id) {
+         return this.available.get(id);
++    }
++
++    public synchronized void addPackFinder(RepositorySource packFinder) {
++        this.sources.add(packFinder);
+     }
+ 
+     public boolean isAvailable(final String id) {

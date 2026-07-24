@@ -1,0 +1,15 @@
+--- a/net/minecraft/tags/EnchantmentTags.java
++++ b/net/minecraft/tags/EnchantmentTags.java
+@@ -38,4 +_,12 @@
+     private static TagKey<Enchantment> create(final String name) {
+         return TagKey.create(Registries.ENCHANTMENT, Identifier.withDefaultNamespace(name));
+     }
++
++    public static TagKey<Enchantment> create(String namepsace, String path) {
++        return create(Identifier.fromNamespaceAndPath(namepsace, path));
++    }
++
++    public static TagKey<Enchantment> create(Identifier name) {
++        return TagKey.create(Registries.ENCHANTMENT, name);
++    }
+ }

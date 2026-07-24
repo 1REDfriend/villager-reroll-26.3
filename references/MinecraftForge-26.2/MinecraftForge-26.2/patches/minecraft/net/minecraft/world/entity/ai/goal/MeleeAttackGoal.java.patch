@@ -1,0 +1,47 @@
+--- a/net/minecraft/world/entity/ai/goal/MeleeAttackGoal.java
++++ b/net/minecraft/world/entity/ai/goal/MeleeAttackGoal.java
+@@ -21,6 +_,8 @@
+     private final int attackInterval = 20;
+     private long lastCanUseCheck;
+     private static final long COOLDOWN_BETWEEN_CAN_USE_CHECKS = 20L;
++    private int failedPathFindingPenalty = 0;
++    private boolean canPenalize = false;
+ 
+     public MeleeAttackGoal(final PathfinderMob mob, final double speedModifier, final boolean followingTargetEvenIfNotSeen) {
+         this.mob = mob;
+@@ -46,6 +_,16 @@
+             return false;
+         }
+ 
++        if (canPenalize) {
++            if (--this.ticksUntilNextPathRecalculation <= 0) {
++                this.path = this.mob.getNavigation().createPath(target, 0);
++                this.ticksUntilNextPathRecalculation = 4 + this.mob.getRandom().nextInt(7);
++                return this.path != null? true : this.mob.isWithinMeleeAttackRange(target);
++            } else {
++                return true;
++            }
++        }
++
+         this.path = this.mob.getNavigation().createPath(target, 0);
+         return this.path != null ? true : this.mob.isWithinMeleeAttackRange(target);
+     }
+@@ -106,6 +_,18 @@
+                 this.pathedTargetZ = target.getZ();
+                 this.ticksUntilNextPathRecalculation = 4 + this.mob.getRandom().nextInt(7);
+                 double targetDistanceSqr = this.mob.distanceToSqr(target);
++                if (this.canPenalize) {
++                    this.ticksUntilNextPathRecalculation += failedPathFindingPenalty;
++                    if (this.mob.getNavigation().getPath() != null) {
++                        var finalPathPoint = this.mob.getNavigation().getPath().getEndNode();
++                        if (finalPathPoint != null && target.distanceToSqr(finalPathPoint.x, finalPathPoint.y, finalPathPoint.z) < 1)
++                            failedPathFindingPenalty = 0;
++                        else
++                            failedPathFindingPenalty += 10;
++                    } else {
++                        failedPathFindingPenalty += 10;
++                    }
++                }
+                 if (targetDistanceSqr > 1024.0) {
+                     this.ticksUntilNextPathRecalculation += 10;
+                 } else if (targetDistanceSqr > 256.0) {

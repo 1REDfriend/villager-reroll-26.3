@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/level/block/DropperBlock.java
++++ b/net/minecraft/world/level/block/DropperBlock.java
+@@ -56,7 +_,7 @@
+                 level.levelEvent(1001, pos, 0);
+             } else {
+                 ItemStack itemStack = blockEntity.getItem(slot);
+-                if (!itemStack.isEmpty()) {
++                if (!itemStack.isEmpty() && net.minecraftforge.items.VanillaInventoryCodeHooks.dropperInsertHook(level, pos, blockEntity, slot, itemStack)) {
+                     Direction direction = level.getBlockState(pos).getValue(FACING);
+                     Container into = HopperBlockEntity.getContainerAt(level, pos.relative(direction));
+                     ItemStack remaining;

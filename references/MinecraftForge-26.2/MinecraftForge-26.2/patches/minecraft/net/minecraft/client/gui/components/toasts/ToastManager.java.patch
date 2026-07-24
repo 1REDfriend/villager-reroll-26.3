@@ -1,0 +1,10 @@
+--- a/net/minecraft/client/gui/components/toasts/ToastManager.java
++++ b/net/minecraft/client/gui/components/toasts/ToastManager.java
+@@ -142,6 +_,7 @@
+     }
+ 
+     public void addToast(final Toast toast) {
++        if (net.minecraftforge.client.event.ForgeEventFactoryClient.onToastAdd(toast)) return;
+         this.queued.add(toast);
+     }
+ 

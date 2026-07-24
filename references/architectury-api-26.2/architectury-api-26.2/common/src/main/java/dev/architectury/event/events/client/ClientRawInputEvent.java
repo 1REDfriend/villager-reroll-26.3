@@ -1,0 +1,85 @@
+/*
+ * This file is part of architectury.
+ * Copyright (C) 2020, 2021, 2022 architectury
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
+package dev.architectury.event.events.client;
+
+import dev.architectury.event.Event;
+import dev.architectury.event.EventFactory;
+import dev.architectury.event.EventResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+
+public interface ClientRawInputEvent {
+    /**
+     * @see MouseScrolled#mouseScrolled(Minecraft, double, double)
+     */
+    Event<MouseScrolled> MOUSE_SCROLLED = EventFactory.createEventResult();
+    /**
+     * @see MouseClicked#mouseClicked(Minecraft, MouseButtonInfo, int)
+     */
+    Event<MouseClicked> MOUSE_CLICKED_PRE = EventFactory.createEventResult();
+    Event<MouseClicked> MOUSE_CLICKED_POST = EventFactory.createEventResult();
+    /**
+     * @see KeyPressed#keyPressed(Minecraft, int, KeyEvent)
+     */
+    Event<KeyPressed> KEY_PRESSED = EventFactory.createEventResult();
+    
+    interface KeyPressed {
+        /**
+         * Invoked whenever a key input is performed.
+         * Equivalent to NeoForge's {@code InputEvent.KeyInputEvent} event.
+         *
+         * @param client   The Minecraft instance performing it.
+         * @param action   The action that should be performed.
+         * @param keyEvent The key event.
+         * @return A {@link EventResult} determining the outcome of the event,
+         * the execution of the vanilla pressing mechanism may be cancelled by the result.
+         */
+        EventResult keyPressed(Minecraft client, int action, KeyEvent keyEvent);
+    }
+    
+    interface MouseScrolled {
+        /**
+         * Invoked whenever the mouse scroll wheel is used.
+         * Equivalent to NeoForge's {@code InputEvent.MouseScrollEvent} event.
+         *
+         * @param client  The Minecraft instance performing it.
+         * @param amountX The amount of movement on the X axis.
+         * @param amountY The amount of movement on the Y axis.
+         * @return A {@link EventResult} determining the outcome of the event,
+         * the execution of the vanilla scrolling mechanism may be cancelled by the result.
+         */
+        EventResult mouseScrolled(Minecraft client, double amountX, double amountY);
+    }
+    
+    interface MouseClicked {
+        /**
+         * Invoked whenever a mouse button is pressed.
+         * There are two variants, either a raw mouse input or the input after it is processed by the game.
+         *
+         * @param client     The Minecraft instance performing it.
+         * @param buttonInfo The pressed mouse button info.
+         * @param action     The action that should be performed.
+         * @return A {@link EventResult} determining the outcome of the event,
+         * the execution of the vanilla clicking mechanism may be cancelled by the result.
+         */
+        EventResult mouseClicked(Minecraft client, MouseButtonInfo buttonInfo, int action);
+    }
+}

@@ -1,0 +1,27 @@
+--- a/net/minecraft/client/renderer/entity/LivingEntityRenderer.java
++++ b/net/minecraft/client/renderer/entity/LivingEntityRenderer.java
+@@ -73,6 +_,7 @@
+     }
+ 
+     public void submit(final S state, final PoseStack poseStack, final SubmitNodeCollector submitNodeCollector, final CameraRenderState camera) {
++        if (net.minecraftforge.client.event.ForgeEventFactoryClient.onRenderLivingPre(state, this, poseStack, submitNodeCollector, camera)) return;
+         poseStack.pushPose();
+         if (state.hasPose(Pose.SLEEPING)) {
+             Direction bedOrientation = state.bedOrientation;
+@@ -110,6 +_,7 @@
+ 
+         poseStack.popPose();
+         super.submit(state, poseStack, submitNodeCollector, camera);
++        net.minecraftforge.client.event.ForgeEventFactoryClient.onRenderLivingPost(state, this, poseStack, submitNodeCollector, camera);
+     }
+ 
+     protected boolean shouldRenderLayers(final S state) {
+@@ -278,7 +_,7 @@
+ 
+         state.isFullyFrozen = entity.isFullyFrozen();
+         state.isBaby = entity.isBaby();
+-        state.isInWater = entity.isInWater();
++        state.isInWater = entity.isInWaterOrSwimmable();
+         state.isAutoSpinAttack = entity.isAutoSpinAttack();
+         state.ticksSinceKineticHitFeedback = entity.getTicksSinceLastKineticHitFeedback(partialTicks);
+         state.hasRedOverlay = entity.hurtTime > 0 || entity.deathTime > 0;

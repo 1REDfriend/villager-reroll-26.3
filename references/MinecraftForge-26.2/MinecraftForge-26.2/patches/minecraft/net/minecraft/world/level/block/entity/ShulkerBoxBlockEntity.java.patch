@@ -1,0 +1,23 @@
+--- a/net/minecraft/world/level/block/entity/ShulkerBoxBlockEntity.java
++++ b/net/minecraft/world/level/block/entity/ShulkerBoxBlockEntity.java
+@@ -240,7 +_,7 @@
+ 
+     @Override
+     public boolean canPlaceItemThroughFace(final int slot, final ItemStack itemStack, final @Nullable Direction direction) {
+-        return !(Block.byItem(itemStack.getItem()) instanceof ShulkerBoxBlock);
++        return !(Block.byItem(itemStack.getItem()) instanceof ShulkerBoxBlock) && itemStack.getItem().canFitInsideContainerItems(); // FORGE: Make shulker boxes respect Item#canFitInsideContainerItems
+     }
+ 
+     @Override
+@@ -263,6 +_,11 @@
+ 
+     public boolean isClosed() {
+         return this.animationStatus == ShulkerBoxBlockEntity.AnimationStatus.CLOSED;
++    }
++
++    @Override
++    protected net.minecraftforge.items.IItemHandler createUnSidedHandler() {
++       return new net.minecraftforge.items.wrapper.SidedInvWrapper(this, Direction.UP);
+     }
+ 
+     public enum AnimationStatus {

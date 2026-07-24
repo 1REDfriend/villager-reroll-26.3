@@ -1,0 +1,37 @@
+--- a/net/minecraft/core/Holder.java
++++ b/net/minecraft/core/Holder.java
+@@ -13,7 +_,22 @@
+ import net.minecraft.tags.TagKey;
+ import org.jspecify.annotations.Nullable;
+ 
+-public sealed interface Holder<T> permits Holder.Direct, Holder.Reference {
++public sealed interface Holder<T> extends java.util.function.Supplier<T>, net.minecraftforge.registries.tags.IReverseTag<T>  permits Holder.Direct, Holder.Reference {
++    @Override
++    default boolean containsTag(TagKey<T> key) {
++        return this.is(key);
++    }
++
++    @Override
++    default Stream<TagKey<T>> getTagKeys() {
++        return this.tags();
++    }
++
++    @Override
++    default T get() {
++        return this.value();
++    }
++
+     T value();
+ 
+     boolean isBound();
+@@ -258,6 +_,10 @@
+         @Override
+         public Stream<TagKey<T>> tags() {
+             return this.boundTags().stream();
++        }
++
++        public Type getType() {
++            return this.type;
+         }
+ 
+         @Override

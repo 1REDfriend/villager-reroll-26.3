@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/level/block/TripWireBlock.java
++++ b/net/minecraft/world/level/block/TripWireBlock.java
+@@ -113,7 +_,7 @@
+ 
+     @Override
+     public BlockState playerWillDestroy(final Level level, final BlockPos pos, final BlockState state, final Player player) {
+-        if (!level.isClientSide() && !player.getMainHandItem().isEmpty() && player.getMainHandItem().is(Items.SHEARS)) {
++        if (!level.isClientSide() && !player.getMainHandItem().isEmpty() && player.getMainHandItem().canPerformAction(net.minecraftforge.common.ToolActions.SHEARS_DISARM)) {
+             level.setBlock(pos, state.setValue(DISARMED, true), 260);
+             level.gameEvent(player, GameEvent.SHEAR, pos);
+         }

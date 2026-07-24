@@ -1,0 +1,136 @@
+--- a/net/minecraft/world/level/storage/loot/LootTable.java
++++ b/net/minecraft/world/level/storage/loot/LootTable.java
+@@ -39,7 +_,7 @@
+             i -> i.group(
+                     LootContextParamSets.CODEC.lenientOptionalFieldOf("type", DEFAULT_PARAM_SET).forGetter(t -> t.paramSet),
+                     Identifier.CODEC.optionalFieldOf("random_sequence").forGetter(t -> t.randomSequence),
+-                    LootPool.CODEC.listOf().optionalFieldOf("pools", List.of()).forGetter(t -> t.pools),
++                    LootPool.CONDITIONAL_CODEC.listOf().optionalFieldOf("pools", List.of()).forGetter(t -> t.pools),
+                     LootItemFunctions.ROOT_CODEC.listOf().optionalFieldOf("functions", List.of()).forGetter(t -> t.functions)
+                 )
+                 .apply(i, LootTable::new)
+@@ -58,7 +_,7 @@
+     ) {
+         this.paramSet = paramSet;
+         this.randomSequence = randomSequence;
+-        this.pools = pools;
++        this.pools = Lists.newArrayList(pools);
+         this.functions = functions;
+         this.compositeFunction = LootItemFunctions.compose(functions);
+     }
+@@ -81,10 +_,12 @@
+         };
+     }
+ 
++    @Deprecated // Use a non-'Raw' version of 'getRandomItems', so that the Forge Global Loot Modifiers will be applied
+     public void getRandomItemsRaw(final LootParams params, final Consumer<ItemStack> output) {
+         this.getRandomItemsRaw(new LootContext.Builder(params).create(this.randomSequence), output);
+     }
+ 
++    @Deprecated // Use a non-'Raw' version of 'getRandomItems', so that the Forge Global Loot Modifiers will be applied
+     public void getRandomItemsRaw(final LootContext context, final Consumer<ItemStack> output) {
+         LootContext.VisitedEntry<?> breadcrumb = LootContext.createVisitedEntry(this);
+         if (context.pushVisitedElement(breadcrumb)) {
+@@ -101,18 +_,19 @@
+     }
+ 
+     public void getRandomItems(final LootParams params, final long optionalLootTableSeed, final Consumer<ItemStack> output) {
+-        this.getRandomItemsRaw(
+-            new LootContext.Builder(params).withOptionalRandomSeed(optionalLootTableSeed).create(this.randomSequence),
++        this.getRandomItems(
++            new LootContext.Builder(params).withOptionalRandomSeed(optionalLootTableSeed).create(this.randomSequence)
++        ).forEach(
+             createStackSplitter(params.getLevel(), output)
+         );
+     }
+ 
+     public void getRandomItems(final LootParams params, final Consumer<ItemStack> output) {
+-        this.getRandomItemsRaw(params, createStackSplitter(params.getLevel(), output));
++        this.getRandomItems(params).forEach(createStackSplitter(params.getLevel(), output));
+     }
+ 
+     public void getRandomItems(final LootContext context, final Consumer<ItemStack> output) {
+-        this.getRandomItemsRaw(context, createStackSplitter(context.getLevel(), output));
++        this.getRandomItems(context).forEach(createStackSplitter(context.getLevel(), output));
+     }
+ 
+     public ObjectArrayList<ItemStack> getRandomItems(final LootParams params, final RandomSource randomSource) {
+@@ -129,7 +_,8 @@
+ 
+     private ObjectArrayList<ItemStack> getRandomItems(final LootContext context) {
+         ObjectArrayList<ItemStack> result = new ObjectArrayList<>();
+-        this.getRandomItems(context, result::add);
++        this.getRandomItemsRaw(context, createStackSplitter(context.getLevel(), result::add));
++        result = net.minecraftforge.common.ForgeHooks.modifyLoot(this, result, context);
+         return result;
+     }
+ 
+@@ -214,6 +_,68 @@
+ 
+     public static LootTable.Builder lootTable() {
+         return new LootTable.Builder();
++    }
++
++    private Identifier lootTableId;
++    public void setLootTableId(final Identifier id) {
++        if (this.lootTableId != null) {
++            throw new IllegalStateException("Attempted to rename loot table from '" + this.lootTableId + "' to '" + id + "': this is not supported");
++        }
++        this.lootTableId = java.util.Objects.requireNonNull(id);
++    }
++
++    public Identifier getLootTableId() {
++        return this.lootTableId;
++    }
++
++    @org.jetbrains.annotations.Nullable
++    public LootPool removePool(String name) {
++        checkFrozen();
++        for (var pool : this.pools) {
++            if (name.equals(pool.getName())) {
++                this.pools.remove(pool);
++                return pool;
++            }
++        }
++        return null;
++    }
++
++    public int poolCount() {
++        return this.pools.size();
++    }
++
++    public LootPool getPool(int entry) {
++        return this.pools.get(entry);
++    }
++
++    @org.jetbrains.annotations.Nullable
++    public LootPool removePool(int entry) {
++        checkFrozen();
++        return this.pools.remove(entry);
++    }
++
++    public void addPool(LootPool pool) {
++        checkFrozen();
++        if (pools.stream().anyMatch(e -> e == pool)) {
++            throw new RuntimeException("Attempted to add a duplicate pool to loot table: " + pool);
++        }
++        this.pools.add(pool);
++    }
++
++    private boolean isFrozen = false;
++    public void freeze() {
++        this.isFrozen = true;
++        this.pools.forEach(LootPool::freeze);
++    }
++
++    public boolean isFrozen() {
++        return this.isFrozen;
++    }
++
++    private void checkFrozen() {
++        if (this.isFrozen()) {
++            throw new RuntimeException("Attempted to modify LootTable after being finalized!");
++        }
+     }
+ 
+     public static class Builder implements FunctionUserBuilder<LootTable.Builder> {

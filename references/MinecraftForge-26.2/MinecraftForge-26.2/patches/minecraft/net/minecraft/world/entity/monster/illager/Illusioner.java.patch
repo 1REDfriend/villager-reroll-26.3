@@ -1,0 +1,16 @@
+--- a/net/minecraft/world/entity/monster/illager/Illusioner.java
++++ b/net/minecraft/world/entity/monster/illager/Illusioner.java
+@@ -174,9 +_,12 @@
+ 
+     @Override
+     public void performRangedAttack(final LivingEntity target, final float power) {
+-        ItemStack bowItem = this.getItemInHand(ProjectileUtil.getWeaponHoldingHand(this, Items.BOW));
++        ItemStack bowItem = this.getItemInHand(ProjectileUtil.getWeaponHoldingHand(this, item -> item instanceof net.minecraft.world.item.BowItem));
+         ItemStack projectile = this.getProjectile(bowItem);
+         AbstractArrow arrow = ProjectileUtil.getMobArrow(this, projectile, power, bowItem);
++        if (this.getMainHandItem().getItem() instanceof net.minecraft.world.item.BowItem bow) {
++            arrow = bow.customArrow(arrow);
++        }
+         double xd = target.getX() - this.getX();
+         double yd = target.getY(0.3333333333333333) - arrow.getY();
+         double zd = target.getZ() - this.getZ();

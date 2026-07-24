@@ -1,0 +1,212 @@
+/*
+ * This file is part of fabric-loom, licensed under the MIT License (MIT).
+ *
+ * Copyright (c) 2018-2024 FabricMC
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+package net.fabricmc.loom.task;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.inject.Inject;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import dev.architectury.loom.forge.dependency.ForgeModClassesService;
+import org.gradle.api.Project;
+import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.services.ServiceReference;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.Nested;
+import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.TaskAction;
+import org.gradle.work.DisableCachingByDefault;
+import org.jetbrains.annotations.ApiStatus;
+
+import net.fabricmc.loom.LoomGradlePlugin;
+import net.fabricmc.loom.api.RunConfiguration;
+import net.fabricmc.loom.configuration.ide.DefaultRunConfigurationSettings;
+import net.fabricmc.loom.configuration.ide.RunConfigUtils;
+import net.fabricmc.loom.util.Arguments;
+import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.gradle.SyncTaskBuildService;
+import net.fabricmc.loom.util.service.ScopedServiceFactory;
+
+// Recommended vscode plugin pack:
+// https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack
+@DisableCachingByDefault
+public abstract class GenVsCodeProjectTask extends AbstractLoomTask {
+	// Prevent Gradle from running vscode task asynchronously
+	@ServiceReference(SyncTaskBuildService.NAME)
+	abstract Property<SyncTaskBuildService> getSyncTask();
+
+	@Input
+	protected abstract ListProperty<VsCodeConfiguration> getLaunchConfigurations();
+
+	@OutputFile
+	protected abstract RegularFileProperty getLaunchJson();
+
+	@ApiStatus.Internal
+	@Nested
+	@Optional
+	protected abstract Property<ForgeModClassesService.Options> getModClassesOptions();
+
+	@Inject
+	public GenVsCodeProjectTask() {
+		setGroup(Constants.TaskGroup.IDE);
+		getLaunchConfigurations().set(getProject().provider(this::getConfigurations));
+		getLaunchJson().convention(getProject().getIsolated().getRootProject().getProjectDirectory().file(".vscode/launch.json"));
+		getModClassesOptions().set(ForgeModClassesService.createOptions(getProject()));
+	}
+
+	private List<VsCodeConfiguration> getConfigurations() {
+		List<VsCodeConfiguration> configurations = new ArrayList<>();
+
+		for (RunConfiguration settings : getExtension().getRunConfigs()) {
+			if (!settings.getGenerateRunConfig().get()) {
+				continue;
+			}
+
+			final VsCodeConfiguration configuration = VsCodeConfiguration.fromRunConfig(getProject(), DefaultRunConfigurationSettings.finialise(settings, getProject()));
+			configurations.add(configuration);
+		}
+
+		return configurations;
+	}
+
+	@TaskAction
+	public void genRuns() throws IOException {
+		final Path launchJson = getLaunchJson().get().getAsFile().toPath();
+
+		if (Files.notExists(launchJson.getParent())) {
+			Files.createDirectories(launchJson.getParent());
+		}
+
+		final JsonObject root;
+
+		if (Files.exists(launchJson)) {
+			root = LoomGradlePlugin.GSON.fromJson(Files.readString(launchJson, StandardCharsets.UTF_8), JsonObject.class);
+		} else {
+			root = new JsonObject();
+			root.addProperty("version", "0.2.0");
+		}
+
+		final JsonArray configurations;
+
+		if (root.has("configurations")) {
+			configurations = root.getAsJsonArray("configurations");
+		} else {
+			configurations = new JsonArray();
+			root.add("configurations", configurations);
+		}
+
+		for (VsCodeConfiguration configuration : getLaunchConfigurations().get()) {
+			JsonObject configurationJson = LoomGradlePlugin.GSON.toJsonTree(configuration).getAsJsonObject();
+			configurationJson.remove("runDir");
+			configurationJson.remove("id");
+
+			if (getModClassesOptions().isPresent()) {
+				try (var serviceFactory = new ScopedServiceFactory()) {
+					ForgeModClassesService service = serviceFactory.get(getModClassesOptions());
+					JsonObject env = configurationJson.getAsJsonObject("env");
+
+					if (env != null && env.has(ForgeModClassesService.ENVIRONMENT_VARIABLE)) {
+						env.addProperty(ForgeModClassesService.ENVIRONMENT_VARIABLE, service.getModClasses(configuration.id));
+					}
+				}
+			}
+
+			final List<JsonElement> toRemove = new ArrayList<>();
+
+			// Remove any existing with the same name
+			for (JsonElement jsonElement : configurations) {
+				if (!jsonElement.isJsonObject()) {
+					continue;
+				}
+
+				final JsonObject jsonObject = jsonElement.getAsJsonObject();
+
+				if (jsonObject.has("name")) {
+					if (jsonObject.get("name").getAsString().equalsIgnoreCase(configuration.name)) {
+						toRemove.add(jsonElement);
+					}
+				}
+			}
+
+			toRemove.forEach(configurations::remove);
+			configurations.add(configurationJson);
+
+			Files.createDirectories(Paths.get(configuration.runDir));
+		}
+
+		final String json = LoomGradlePlugin.GSON.toJson(root);
+		Files.writeString(launchJson, json, StandardCharsets.UTF_8);
+	}
+
+	public record VsCodeConfiguration(
+			String type,
+			String name,
+			String id,
+			String request,
+			String cwd,
+			String console,
+			boolean stopOnEntry,
+			String mainClass,
+			String vmArgs,
+			String args,
+			Map<String, Object> env,
+			String projectName,
+			String runDir) implements Serializable {
+		public static VsCodeConfiguration fromRunConfig(Project project, RunConfiguration config) {
+			String cwd = RunConfigUtils.formatRunDir(config, project, File::getAbsolutePath, "${workspaceFolder}/%s"::formatted);
+
+			return new VsCodeConfiguration(
+					"java",
+					RunConfigUtils.getDisplayName(config, project),
+					config.getName(),
+					"launch",
+					cwd,
+					"integratedTerminal",
+					false,
+					config.getDevLaunchMainClass().get(),
+					Arguments.join(config.getJvmArguments().get()),
+					Arguments.join(config.getProgramArguments().get()),
+					new HashMap<>(config.getEnvironmentVars().get()),
+					project.getName(),
+					cwd
+			);
+		}
+	}
+}

@@ -1,0 +1,18 @@
+--- a/net/minecraft/server/level/ServerEntity.java
++++ b/net/minecraft/server/level/ServerEntity.java
+@@ -262,6 +_,7 @@
+     public void removePairing(final ServerPlayer player) {
+         this.entity.stopSeenByPlayer(player);
+         player.connection.send(new ClientboundRemoveEntitiesPacket(this.entity.getId()));
++        net.minecraftforge.event.ForgeEventFactory.onStopEntityTracking(this.entity, player);
+     }
+ 
+     public void addPairing(final ServerPlayer player) {
+@@ -269,6 +_,7 @@
+         this.sendPairingData(player, packets::add);
+         player.connection.send(new ClientboundBundlePacket(packets));
+         this.entity.startSeenByPlayer(player);
++        net.minecraftforge.event.ForgeEventFactory.onStartEntityTracking(this.entity, player);
+     }
+ 
+     public void sendPairingData(final ServerPlayer player, final Consumer<Packet<ClientGamePacketListener>> broadcast) {

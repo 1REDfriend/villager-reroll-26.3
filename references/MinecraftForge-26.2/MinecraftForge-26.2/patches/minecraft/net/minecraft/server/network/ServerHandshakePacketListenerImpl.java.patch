@@ -1,0 +1,19 @@
+--- a/net/minecraft/server/network/ServerHandshakePacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerHandshakePacketListenerImpl.java
+@@ -24,6 +_,7 @@
+ 
+     @Override
+     public void handleIntention(final ClientIntentionPacket packet) {
++        if (!net.minecraftforge.server.ServerLifecycleHooks.handleServerLogin(packet, this.connection)) return;
+         switch (packet.intention()) {
+             case LOGIN:
+                 this.beginLogin(packet, false);
+@@ -32,7 +_,7 @@
+                 ServerStatus status = this.server.getStatus();
+                 this.connection.setupOutboundProtocol(StatusProtocols.CLIENTBOUND);
+                 if (this.server.repliesToStatus() && status != null) {
+-                    this.connection.setupInboundProtocol(StatusProtocols.SERVERBOUND, new ServerStatusPacketListenerImpl(status, this.connection));
++                    this.connection.setupInboundProtocol(StatusProtocols.SERVERBOUND, new ServerStatusPacketListenerImpl(status, this.connection, this.server.getStatusJson()));
+                 } else {
+                     this.connection.disconnect(IGNORE_STATUS_REASON);
+                 }

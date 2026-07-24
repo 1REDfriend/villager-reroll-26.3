@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "package": "dev.architectury.mixin.neoforge",
+  "plugin": "dev.architectury.plugin.neoforge.ArchitecturyMixinPlugin",
+  "compatibilityLevel": "JAVA_25",
+  "minVersion": "0.8",
+  "client": [
+    "client.MixinClientPacketListener",
+    "client.MixinCommandSourceStack",
+    "client.MixinAbstractContainerScreen",
+    "MixinClientLevel",
+    "MixinMinecraft"
+  ],
+  "mixins": [
+    "neoforge.MixinBucketItem",
+    "neoforge.BucketItemAccessor",
+    "neoforge.LiquidBlockAccessor",
+    "neoforge.MixinChunkMap",
+    "MixinFallingBlockEntity",
+    "MixinLevelEvent"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

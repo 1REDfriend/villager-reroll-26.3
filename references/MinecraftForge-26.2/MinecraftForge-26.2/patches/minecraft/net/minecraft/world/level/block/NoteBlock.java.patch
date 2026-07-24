@@ -1,0 +1,29 @@
+--- a/net/minecraft/world/level/block/NoteBlock.java
++++ b/net/minecraft/world/level/block/NoteBlock.java
+@@ -123,7 +_,9 @@
+     @Override
+     protected InteractionResult useWithoutItem(BlockState state, final Level level, final BlockPos pos, final Player player, final BlockHitResult hitResult) {
+         if (!level.isClientSide()) {
+-            state = state.cycle(NOTE);
++            int _new = net.minecraftforge.common.ForgeHooks.onNoteChange(level, pos, state, state.getValue(NOTE), state.cycle(NOTE).getValue(NOTE));
++            if (_new == -1) return InteractionResult.FAIL;
++            state = state.setValue(NOTE, _new);
+             level.setBlock(pos, state, 3);
+             this.playNote(player, state, level, pos);
+             player.awardStat(Stats.TUNE_NOTEBLOCK);
+@@ -146,10 +_,13 @@
+ 
+     @Override
+     protected boolean triggerEvent(final BlockState state, final Level level, final BlockPos pos, final int b0, final int b1) {
+-        NoteBlockInstrument instrument = state.getValue(INSTRUMENT);
++        var event = net.minecraftforge.event.ForgeEventFactory.onNotePlay(level, pos, state, state.getValue(NOTE), state.getValue(INSTRUMENT));
++        if (event == null) return false;
++        var newState = state.setValue(NOTE, event.getVanillaNoteId()).setValue(INSTRUMENT, event.getInstrument());
++        NoteBlockInstrument instrument = newState.getValue(INSTRUMENT);
+         float pitch;
+         if (instrument.isTunable()) {
+-            int note = state.getValue(NOTE);
++            int note = newState.getValue(NOTE);
+             pitch = getPitchFromNote(note);
+             level.addParticle(ParticleTypes.NOTE, pos.getX() + 0.5, pos.getY() + 1.2, pos.getZ() + 0.5, note / 24.0, 0.0, 0.0);
+         } else {

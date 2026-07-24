@@ -1,0 +1,10 @@
+--- a/net/minecraft/server/network/MemoryServerHandshakePacketListenerImpl.java
++++ b/net/minecraft/server/network/MemoryServerHandshakePacketListenerImpl.java
+@@ -19,6 +_,7 @@
+ 
+     @Override
+     public void handleIntention(final ClientIntentionPacket packet) {
++        if (!net.minecraftforge.server.ServerLifecycleHooks.handleServerLogin(packet, this.connection)) return;
+         if (packet.intention() != ClientIntent.LOGIN) {
+             throw new UnsupportedOperationException("Invalid intention " + packet.intention());
+         }

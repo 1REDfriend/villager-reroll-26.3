@@ -1,0 +1,12 @@
+{
+  "values": [
+    "#minecraft:head_armor",
+    "#minecraft:chest_armor",
+    "#minecraft:leg_armor",
+    "#minecraft:foot_armor",
+    "#c:armors/horse",
+    "#c:armors/nautilus",
+    "#c:armors/wolf",
+    "#c:armors/humanoid"
+  ]
+}

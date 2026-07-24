@@ -1,0 +1,13 @@
+--- a/net/minecraft/data/tags/EnchantmentTagsProvider.java
++++ b/net/minecraft/data/tags/EnchantmentTagsProvider.java
+@@ -17,6 +_,10 @@
+         super(output, Registries.ENCHANTMENT, lookupProvider);
+     }
+ 
++    public EnchantmentTagsProvider(final PackOutput output, final CompletableFuture<HolderLookup.Provider> lookupProvider, String modId, @org.jetbrains.annotations.Nullable net.minecraftforge.common.data.ExistingFileHelper existingFileHelper) {
++        super(output, Registries.ENCHANTMENT, lookupProvider, modId, existingFileHelper);
++    }
++
+     protected void tooltipOrder(final HolderLookup.Provider registries, final ResourceKey<Enchantment>... order) {
+         this.tag(EnchantmentTags.TOOLTIP_ORDER).add(order);
+         Set<ResourceKey<Enchantment>> set = Set.of(order);

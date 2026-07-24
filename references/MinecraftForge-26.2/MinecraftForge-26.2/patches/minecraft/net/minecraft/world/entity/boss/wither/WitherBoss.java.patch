@@ -1,0 +1,31 @@
+--- a/net/minecraft/world/entity/boss/wither/WitherBoss.java
++++ b/net/minecraft/world/entity/boss/wither/WitherBoss.java
+@@ -319,7 +_,7 @@
+ 
+             if (this.destroyBlocksTick > 0) {
+                 this.destroyBlocksTick--;
+-                if (this.destroyBlocksTick == 0 && level.getGameRules().get(GameRules.MOB_GRIEFING)) {
++                if (this.destroyBlocksTick == 0 && net.minecraftforge.event.ForgeEventFactory.getMobGriefingEvent(level, this)) {
+                     boolean destroyed = false;
+                     int width = Mth.floor(this.getBbWidth() / 2.0F + 1.0F);
+                     int height = Mth.floor(this.getBbHeight());
+@@ -333,7 +_,7 @@
+                         this.getBlockZ() + width
+                     )) {
+                         BlockState state = level.getBlockState(blockPos);
+-                        if (canDestroy(state)) {
++                        if (state.canEntityDestroy(level, blockPos, this) && net.minecraftforge.event.ForgeEventFactory.onEntityDestroyBlock(this, blockPos, state)) {
+                             destroyed = level.destroyBlock(blockPos, true, this) || destroyed;
+                         }
+                     }
+@@ -352,6 +_,10 @@
+         }
+     }
+ 
++    /**
++     * @deprecated Forge: Use {@link BlockState#canEntityDestroy(net.minecraft.world.level.BlockGetter, BlockPos, Entity)} instead.
++     */
++    @Deprecated
+     public static boolean canDestroy(final BlockState state) {
+         return !state.isAir() && !state.is(BlockTags.WITHER_IMMUNE);
+     }

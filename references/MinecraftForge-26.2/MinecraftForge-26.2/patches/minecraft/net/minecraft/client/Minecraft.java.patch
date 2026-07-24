@@ -1,0 +1,311 @@
+--- a/net/minecraft/client/Minecraft.java
++++ b/net/minecraft/client/Minecraft.java
+@@ -258,7 +_,7 @@
+ import org.slf4j.Logger;
+ 
+ @OnlyIn(Dist.CLIENT)
+-public class Minecraft extends ReentrantBlockableEventLoop<Runnable> implements WindowEventHandler {
++public class Minecraft extends ReentrantBlockableEventLoop<Runnable> implements WindowEventHandler, net.minecraftforge.client.extensions.IForgeMinecraft {
+     private static Minecraft instance;
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private static final int MAX_TICKS_PER_UPDATE = 10;
+@@ -410,7 +_,6 @@
+             }
+         }, Util.nonCriticalIoPool());
+         LOGGER.info("Setting user: {}", this.user.getName());
+-        LOGGER.debug("(Session ID is {})", this.user.getSessionId());
+         this.demo = gameConfig.game.demo;
+         this.allowsMultiplayer = !gameConfig.game.disableMultiplayer;
+         this.allowsChat = !gameConfig.game.disableChat;
+@@ -547,12 +_,12 @@
+             LOGGER.error("Couldn't set icon", e);
+         }
+ 
++        // FORGE: Move mouse and keyboard handler setup further below
+         this.mouseHandler = new MouseHandler(this);
+-        this.mouseHandler.setup(this.window);
+         this.keyboardHandler = new KeyboardHandler(this);
+-        this.keyboardHandler.setup(this.window);
+         this.options.applyGraphicsPreset(this.options.graphicsPreset().get());
+         this.resourceManager = new ReloadableResourceManager(PackType.CLIENT_RESOURCES);
++        net.minecraftforge.client.loading.ClientModLoader.begin(this, this.resourcePackRepository, this.resourceManager);
+         this.resourcePackRepository.reload();
+         this.options.loadSelectedResourcePacks(this.resourcePackRepository);
+         this.languageManager = new LanguageManager(this.options.languageCode, var1 -> {
+@@ -630,6 +_,7 @@
+         ParticleResources particleResources = new ParticleResources();
+         this.resourceManager.registerReloadListener(particleResources);
+         this.particleEngine = new ParticleEngine(this.level, particleResources);
++        net.minecraftforge.client.ForgeHooksClient.onRegisterParticleProviders(particleResources);
+         particleResources.onReload(this.particleEngine::clearParticles);
+         this.gameRenderer = new GameRenderer(this, this.entityRenderDispatcher.getItemInHandRenderer(), this.modelManager);
+         WindowRenderState windowRenderState = this.gameRenderer.gameRenderState().windowRenderState;
+@@ -647,6 +_,7 @@
+             this.window.getHeight()
+         );
+         this.levelExtractor = new LevelExtractor(this, this.gameRenderer.gameRenderState().levelRenderState, this.levelRenderer);
++        net.minecraftforge.client.event.ForgeEventFactoryClient.onInitLevelRenderer();
+         this.resourceManager.registerReloadListener(this.levelExtractor);
+         this.resourceManager.registerReloadListener(this.levelRenderer.cloudRenderer());
+         this.gpuWarnlistManager = new GpuWarnlistManager();
+@@ -654,6 +_,9 @@
+         this.resourceManager.registerReloadListener(this.regionalCompliancies);
+         this.gui = new Gui(this, new Hud(this), this.gameRenderer.gameRenderState().guiRenderState);
+         this.gui.registerReloadListeners(this.resourceManager);
++        // FORGE: Moved keyboard and mouse handler setup below ingame gui creation to prevent NPEs in them.
++        this.mouseHandler.setup(this.window);
++        this.keyboardHandler.setup(this.window);
+         RealmsClient realmsClient = RealmsClient.getOrCreate(this);
+         this.realmsDataFetcher = new RealmsDataFetcher(realmsClient);
+         RenderSystem.setErrorCallback(this::onFullscreenError);
+@@ -686,6 +_,7 @@
+             }
+         }
+ 
++        net.minecraftforge.client.ForgeHooksClient.initClientHooks(this, this.resourceManager);
+         this.window.updateRawMouseInput(this.options.rawMouseInput().get());
+         this.window.setAllowCursorChanges(this.options.allowCursorChanges().get());
+         this.window.setDefaultErrorCallback();
+@@ -710,14 +_,15 @@
+             .createReload(Util.backgroundExecutor().forName("resourceLoad"), this, RESOURCE_RELOAD_INITIAL_TASK, packs);
+         GameLoadTimesEvent.INSTANCE.beginStep(TelemetryProperty.LOAD_TIME_LOADING_OVERLAY_MS);
+         GameLoadCookie loadCookie = new GameLoadCookie(realmsClient, gameConfig.quickPlay);
+-        this.gui.setOverlay(new LoadingOverlay(this, reloadInstance, maybeT -> Util.ifElse(maybeT, t -> this.rollbackResourcePacks(t, loadCookie), () -> {
++        this.gui.setOverlay(net.minecraftforge.fml.loading.ImmediateWindowHandler.<LoadingOverlay>loadingOverlay(() -> this, () ->reloadInstance, maybeT -> Util.ifElse(maybeT, t -> this.rollbackResourcePacks(t, loadCookie), () -> {
+             if (SharedConstants.IS_RUNNING_IN_IDE) {
+                 this.selfTest();
+             }
+ 
+             this.reloadStateTracker.finishReload();
+             this.onResourceLoadFinished(loadCookie);
+-        }), false));
++            net.minecraftforge.client.loading.ClientModLoader.completeModLoading();
++        }), false).get());
+         this.quickPlayLog = QuickPlayLog.of(gameConfig.quickPlay.logPath());
+         this.framerateLimitTracker = new FramerateLimitTracker(this.options, this);
+         this.fpsPieProfiler = new ContinuousProfiler(Util.timeSource(), () -> this.fpsPieRenderTicks, this.framerateLimitTracker::isHeavilyThrottled);
+@@ -801,6 +_,7 @@
+         StringBuilder builder = new StringBuilder("Minecraft");
+         if (checkModStatus().shouldReportAsModified()) {
+             builder.append("*");
++            builder.append(" Forge");
+         }
+ 
+         builder.append(" ");
+@@ -824,6 +_,8 @@
+     }
+ 
+     private static UserApiService createUserApiService(final YggdrasilAuthenticationService authService, final GameConfig config) {
++        if ("0".equals(config.user.user.getAccessToken())) // Forge: We use "0" in dev. Short circuit to stop exception spam.
++            return UserApiService.OFFLINE;
+         return config.game.offlineDeveloperMode ? UserApiService.OFFLINE : authService.createUserApiService(config.user.user.getAccessToken());
+     }
+ 
+@@ -840,7 +_,7 @@
+     }
+ 
+     private void rollbackResourcePacks(final Throwable t, final @Nullable GameLoadCookie loadCookie) {
+-        if (this.resourcePackRepository.getSelectedIds().size() > 1) {
++        if (this.resourcePackRepository.getSelectedPacks().stream().anyMatch(e -> !e.isRequired())) { //Forge: This caused infinite loop if any resource packs are forced. Such as mod resources. So check if we can disable any.
+             this.clearResourcePacksOnError(t, null, loadCookie);
+         } else {
+             Util.throwAsRuntime(t);
+@@ -1141,6 +_,7 @@
+             Util.shutdownExecutors();
+             this.windowSurface.close();
+             RenderSystem.shutdownRenderer();
++            net.minecraftforge.fml.config.ConfigTracker.forceUnload();
+         } catch (Throwable t) {
+             LOGGER.error("Shutdown failure!", t);
+             throw t;
+@@ -1301,7 +_,9 @@
+                 profiler.popPush("gpuAsync");
+                 RenderSystem.executePendingTasks();
+                 profiler.pop();
++                net.minecraftforge.client.event.ForgeEventFactoryClient.onRenderTickStart(this.deltaTracker);
+                 this.gameRenderer.render(this.deltaTracker, advanceGameTime);
++                net.minecraftforge.client.event.ForgeEventFactoryClient.onRenderTickEnd(this.deltaTracker);
+             }
+ 
+             profiler.push("present");
+@@ -1425,6 +_,7 @@
+         this.window.setGuiScale(guiScale);
+         if (this.gui.screen() != null) {
+             this.gui.screen().resize(this.window.getGuiScaledWidth(), this.window.getGuiScaledHeight());
++            this.gui.resizeLayers(this.window.getGuiScaledWidth(), this.window.getGuiScaledHeight());
+         }
+ 
+         this.mouseHandler.setIgnoreFirstMove();
+@@ -1576,6 +_,7 @@
+     }
+ 
+     public void stop() {
++        if (this.isRunning()) net.minecraftforge.event.ForgeEventFactory.onGameShuttingDown();
+         this.running = false;
+     }
+ 
+@@ -1599,10 +_,18 @@
+                 if (down && this.hitResult != null && this.hitResult.getType() == HitResult.Type.BLOCK) {
+                     BlockHitResult blockHit = (BlockHitResult)this.hitResult;
+                     BlockPos pos = blockHit.getBlockPos();
+-                    if (!this.level.getBlockState(pos).isAir()) {
++                    if (!this.level.isEmptyBlock(pos)) {
++                        var inputEvent = new net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered(0, this.options.keyAttack, InteractionHand.MAIN_HAND);
++                        if (net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered.BUS.post(inputEvent)) {
++                           if (inputEvent.shouldSwingHand()) {
++                              this.level.addBreakingBlockEffect(pos, blockHit);
++                              this.player.swing(InteractionHand.MAIN_HAND);
++                           }
++                           return;
++                        }
+                         Direction direction = blockHit.getDirection();
+-                        if (this.gameMode.continueDestroyBlock(pos, direction)) {
+-                            this.level.addBreakingBlockEffect(pos, direction);
++                        if (this.gameMode.continueDestroyBlock(pos, direction) && inputEvent.shouldSwingHand()) {
++                            this.level.addBreakingBlockEffect(pos, blockHit);
+                             this.player.swing(InteractionHand.MAIN_HAND);
+                         }
+                     }
+@@ -1656,6 +_,8 @@
+                     return true;
+                 }
+ 
++                var inputEvent = new net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered(0, this.options.keyAttack, InteractionHand.MAIN_HAND);
++                if (!net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered.BUS.post(inputEvent))
+                 switch (this.hitResult.getType()) {
+                     case ENTITY:
+                         AttackRange customItemRange = heldItem.get(DataComponents.ATTACK_RANGE);
+@@ -1666,7 +_,7 @@
+                     case BLOCK:
+                         BlockHitResult blockHit = (BlockHitResult)this.hitResult;
+                         BlockPos pos = blockHit.getBlockPos();
+-                        if (!this.level.getBlockState(pos).isAir()) {
++                        if (!this.level.isEmptyBlock(pos)) {
+                             this.gameMode.startDestroyBlock(pos, blockHit.getDirection());
+                             if (this.level.getBlockState(pos).isAir()) {
+                                 endAttack = true;
+@@ -1679,8 +_,10 @@
+                         }
+ 
+                         this.player.resetAttackStrengthTicker();
++                        net.minecraftforge.event.ForgeEventFactory.onLeftClickEmpty(this.player);
+                 }
+ 
++                if (inputEvent.shouldSwingHand())
+                 this.player.swing(InteractionHand.MAIN_HAND);
+                 return endAttack;
+             }
+@@ -1696,6 +_,12 @@
+                 }
+ 
+                 for (InteractionHand hand : InteractionHand.values()) {
++                    var inputEvent = new net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered(1, this.options.keyUse, hand);
++                    if (net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered.BUS.post(inputEvent)) {
++                       if (inputEvent.shouldSwingHand()) this.player.swing(hand);
++                       return;
++                    }
++
+                     ItemStack heldItem = this.player.getItemInHand(hand);
+                     if (!heldItem.isItemEnabled(this.level.enabledFeatures())) {
+                         return;
+@@ -1712,7 +_,7 @@
+ 
+                                 if (this.player.isWithinEntityInteractionRange(entity, 0.0)
+                                     && this.gameMode.interact(this.player, entity, entityHit, hand) instanceof InteractionResult.Success success) {
+-                                    if (success.swingSource() == InteractionResult.SwingSource.CLIENT) {
++                                    if (success.swingSource() == InteractionResult.SwingSource.CLIENT && inputEvent.shouldSwingHand()) {
+                                         this.player.swing(hand);
+                                     }
+ 
+@@ -1724,7 +_,7 @@
+                                 int oldCount = heldItem.getCount();
+                                 InteractionResult useResult = this.gameMode.useItemOn(this.player, hand, blockHit);
+                                 if (useResult instanceof InteractionResult.Success success) {
+-                                    if (success.swingSource() == InteractionResult.SwingSource.CLIENT) {
++                                    if (success.swingSource() == InteractionResult.SwingSource.CLIENT && inputEvent.shouldSwingHand()) {
+                                         this.player.swing(hand);
+                                         if (!heldItem.isEmpty() && (heldItem.getCount() != oldCount || this.player.hasInfiniteMaterials())) {
+                                             this.gameRenderer.itemInHandRenderer.itemUsed(hand);
+@@ -1740,6 +_,9 @@
+                         }
+                     }
+ 
++                    if (heldItem.isEmpty() && (this.hitResult == null || this.hitResult.getType() == HitResult.Type.MISS))
++                       net.minecraftforge.event.ForgeEventFactory.onRightClickEmpty(this.player, hand);
++
+                     if (!heldItem.isEmpty() && this.gameMode.useItem(this.player, hand) instanceof InteractionResult.Success success) {
+                         if (success.swingSource() == InteractionResult.SwingSource.CLIENT) {
+                             this.player.swing(hand);
+@@ -1768,6 +_,8 @@
+         }
+ 
+         ProfilerFiller profiler = Profiler.get();
++        net.minecraftforge.event.ForgeEventFactory.onPreClientTick();
++
+         profiler.push("gameMode");
+         if (!this.pause && this.level != null) {
+             this.gameMode.tick();
+@@ -1817,6 +_,7 @@
+ 
+                 this.tutorial.tick();
+ 
++                net.minecraftforge.event.ForgeEventFactory.onPreLevelTick(this.level, () -> true);
+                 try {
+                     this.level.tick(() -> true);
+                 } catch (Throwable t) {
+@@ -1830,6 +_,7 @@
+ 
+                     throw new ReportedException(report);
+                 }
++                net.minecraftforge.event.ForgeEventFactory.onPostLevelTick(this.level, () -> true);
+             }
+ 
+             profiler.popPush("animateTick");
+@@ -1854,6 +_,7 @@
+         profiler.popPush("keyboard");
+         this.keyboardHandler.tick();
+         profiler.pop();
++        net.minecraftforge.event.ForgeEventFactory.onPostClientTick();
+     }
+ 
+     private boolean isLevelRunningNormally() {
+@@ -2059,6 +_,7 @@
+     }
+ 
+     public void setLevel(final ClientLevel level) {
++        if (this.level != null) net.minecraftforge.event.ForgeEventFactory.onLevelUnload(this.level);
+         this.level = level;
+         this.updateLevelInEngines(level);
+     }
+@@ -2120,6 +_,7 @@
+         IntegratedServer server = this.singleplayerServer;
+         this.singleplayerServer = null;
+         this.gameRenderer.resetData();
++        net.minecraftforge.client.event.ForgeEventFactoryClient.firePlayerLogout(this.gameMode, this.player);
+         this.gameMode = null;
+         this.narrator.clear();
+         this.gui.setClientLevelTeardownInProgress(true);
+@@ -2127,6 +_,7 @@
+         try {
+             if (this.level != null) {
+                 this.gui.hud.onDisconnected();
++                net.minecraftforge.event.ForgeEventFactory.onLevelUnload(this.level);
+             }
+ 
+             this.level = null;
+@@ -2141,6 +_,7 @@
+                 }
+ 
+                 profiler.pop();
++                net.minecraftforge.client.ForgeHooksClient.handleClientLevelClosing(this.level);
+             }
+ 
+             this.setScreenAndShow(screen);
+@@ -2354,6 +_,7 @@
+ 
+     private void pickBlockOrEntity() {
+         if (this.hitResult != null && this.hitResult.getType() != HitResult.Type.MISS) {
++            if (net.minecraftforge.client.event.ForgeEventFactoryClient.onClickInputPickBlock(this.options.keyPickItem)) return;
+             boolean includeData = this.hasControlDown();
+             switch (this.hitResult) {
+                 case BlockHitResult blockHitResult:

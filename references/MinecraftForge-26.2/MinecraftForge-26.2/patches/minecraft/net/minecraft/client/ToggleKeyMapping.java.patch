@@ -1,0 +1,22 @@
+--- a/net/minecraft/client/ToggleKeyMapping.java
++++ b/net/minecraft/client/ToggleKeyMapping.java
+@@ -38,7 +_,7 @@
+     @Override
+     public void setDown(final boolean down) {
+         if (this.needsToggle.getAsBoolean()) {
+-            if (down) {
++            if (down && isConflictContextAndModifierActive()) {
+                 super.setDown(!this.isDown());
+             }
+         } else {
+@@ -66,5 +_,10 @@
+ 
+     protected void reset() {
+         super.setDown(false);
++    }
++
++    @Override
++    public boolean isDown() {
++        return this.isDown && (isConflictContextAndModifierActive() || needsToggle.getAsBoolean());
+     }
+ }

@@ -1,0 +1,30 @@
+--- a/net/minecraft/client/renderer/texture/SpriteLoader.java
++++ b/net/minecraft/client/renderer/texture/SpriteLoader.java
+@@ -71,7 +_,7 @@
+             int minSize = Math.min(minTexelSize, lowestOneBit);
+             int minPowerOfTwo = Mth.log2(minSize);
+             int mipLevel;
+-            if (minPowerOfTwo < maxMipmapLevels) {
++            if (minPowerOfTwo < maxMipmapLevels && net.minecraftforge.common.ForgeConfig.CLIENT.allowMipmapLowering()) { // Forge: Do not lower the mipmap level
+                 LOGGER.warn("{}: dropping miplevel from {} to {}, because of minimum power of two: {}", this.location, maxMipmapLevels, minPowerOfTwo, minSize);
+                 mipLevel = minPowerOfTwo;
+             } else {
+@@ -129,7 +_,8 @@
+         final Executor taskExecutor,
+         final Set<MetadataSectionType<?>> additionalMetadata
+     ) {
+-        SpriteResourceLoader spriteResourceLoader = SpriteResourceLoader.create(additionalMetadata);
++        var sections = net.minecraftforge.client.ForgeHooksClient.getAtlastMetadataSections(atlasInfoLocation, additionalMetadata);
++        SpriteResourceLoader spriteResourceLoader = SpriteResourceLoader.create(sections);
+         return CompletableFuture.<List<SpriteSource.Loader>>supplyAsync(() -> SpriteSourceList.load(manager, atlasInfoLocation).list(manager), taskExecutor)
+             .thenCompose(sprites -> runSpriteSuppliers(spriteResourceLoader, (List<SpriteSource.Loader>)sprites, taskExecutor))
+             .thenApply(resources -> this.stitch((List<SpriteContents>)resources, maxMipmapLevels, taskExecutor));
+@@ -138,7 +_,7 @@
+     private Map<Identifier, TextureAtlasSprite> getStitchedSprites(final Stitcher<SpriteContents> stitcher, final int atlasWidth, final int atlasHeight) {
+         Map<Identifier, TextureAtlasSprite> result = new HashMap<>();
+         stitcher.gatherSprites(
+-            (contents, x, y, padding) -> result.put(contents.name(), new TextureAtlasSprite(this.location, contents, atlasWidth, atlasHeight, x, y, padding))
++            (contents, x, y, padding) -> result.put(contents.name(), net.minecraftforge.client.ForgeHooksClient.loadTextureAtlasSprite(this.location, contents, atlasWidth, atlasHeight, x, y, padding))
+         );
+         return result;
+     }

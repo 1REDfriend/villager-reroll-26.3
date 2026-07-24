@@ -1,0 +1,20 @@
+--- a/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
+@@ -93,6 +_,7 @@
+ 
+     @Override
+     public void handleCustomPayload(final ServerboundCustomPayloadPacket packet) {
++        net.minecraftforge.common.ForgeHooks.onCustomPayload(packet.payload(), this.connection);
+     }
+ 
+     @Override
+@@ -201,5 +_,9 @@
+ 
+     protected CommonListenerCookie createCookie(final ClientInformation clientInformation) {
+         return new CommonListenerCookie(this.playerProfile(), this.latency, clientInformation, this.transferred);
++    }
++
++    public Connection getConnection() {
++        return this.connection;
+     }
+ }

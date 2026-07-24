@@ -1,0 +1,62 @@
+--- a/net/minecraft/data/DataGenerator.java
++++ b/net/minecraft/data/DataGenerator.java
+@@ -18,6 +_,7 @@
+     protected final PackOutput vanillaPackOutput;
+     protected final Set<String> allProviderIds = new HashSet<>();
+     protected final Map<String, DataProvider> providersToRun = new LinkedHashMap<>();
++    private final Map<String, DataProvider> providersView = java.util.Collections.unmodifiableMap(this.providersToRun);
+ 
+     public DataGenerator(final Path output) {
+         this.vanillaPackOutput = new PackOutput(output);
+@@ -33,6 +_,35 @@
+         Path packOutputDir = this.vanillaPackOutput.getOutputFolder(PackOutput.Target.DATA_PACK).resolve("minecraft").resolve("datapacks").resolve(packId);
+         return new DataGenerator.PackGenerator(toRun, packId, new PackOutput(packOutputDir));
+     }
++    public Map<String, DataProvider> getProvidersView() {
++        return this.providersView;
++    }
++
++    public PackOutput getPackOutput() {
++        return this.vanillaPackOutput;
++    }
++
++    public PackOutput getPackOutput(String path) {
++        return new PackOutput(getPackOutput().getOutputFolder().resolve(path));
++    }
++
++    public <T extends DataProvider> T addProvider(boolean run, DataProvider.Factory<T> factory) {
++        return addProvider(run, factory.create(this.vanillaPackOutput));
++    }
++
++    public <T extends DataProvider> T addProvider(boolean run, T provider) {
++        String id = provider.getName();
++
++        if (!DataGenerator.this.allProviderIds.add(id)) {
++            throw new IllegalStateException("Duplicate provider: " + id);
++        }
++
++        if (run) {
++            DataGenerator.this.providersToRun.put(id, provider);
++        }
++
++        return provider;
++    }
+ 
+     static {
+         Bootstrap.bootStrap();
+@@ -60,6 +_,7 @@
+                     DataGenerator.LOGGER.debug("Generator {} already run for version {}", providerId, this.version.name());
+                 } else {
+                     DataGenerator.LOGGER.info("Starting provider: {}", providerId);
++                    net.minecraftforge.fml.StartupMessageManager.addModMessage("Generating: " + providerId);
+                     stopwatch.start();
+                     cache.applyUpdate(cache.generateUpdate(providerId, provider::run).join());
+                     stopwatch.stop();
+@@ -109,6 +_,7 @@
+             Stopwatch stopwatch = Stopwatch.createUnstarted();
+             this.providersToRun.forEach((providerId, provider) -> {
+                 DataGenerator.LOGGER.info("Starting uncached provider: {}", providerId);
++                net.minecraftforge.fml.StartupMessageManager.addModMessage("Generating: " + providerId);
+                 stopwatch.start();
+                 provider.run(CachedOutput.NO_CACHE).join();
+                 stopwatch.stop();

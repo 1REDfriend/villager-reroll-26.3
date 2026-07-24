@@ -1,0 +1,45 @@
+--- a/net/minecraft/client/gui/screens/options/controls/KeyBindsScreen.java
++++ b/net/minecraft/client/gui/screens/options/controls/KeyBindsScreen.java
+@@ -42,7 +_,7 @@
+     protected void addFooter() {
+         this.resetButton = Button.builder(Component.translatable("controls.resetAll"), button -> {
+             for (KeyMapping key : this.options.keyMappings) {
+-                key.setKey(key.getDefaultKey());
++                key.setToDefault();
+             }
+ 
+             this.keyBindsList.resetMappingAndUpdateButtons();
+@@ -74,11 +_,12 @@
+     public boolean keyPressed(final KeyEvent event) {
+         if (this.selectedKey != null) {
+             if (event.isEscape()) {
+-                this.selectedKey.setKey(InputConstants.UNKNOWN);
++                this.selectedKey.setKeyModifierAndCode(null, InputConstants.UNKNOWN);
+             } else {
+-                this.selectedKey.setKey(InputConstants.getKey(event));
++                this.selectedKey.setKeyModifierAndCode(null, InputConstants.getKey(event));
+             }
+ 
++            if (event.isEscape() || !net.minecraftforge.client.settings.KeyModifier.isKeyCodeModifier(this.selectedKey.getKey()))
+             this.selectedKey = null;
+             this.lastKeySelection = Util.getMillis();
+             this.keyBindsList.resetMappingAndUpdateButtons();
+@@ -101,5 +_,18 @@
+         }
+ 
+         this.resetButton.active = canReset;
++    }
++
++    @Override
++    public boolean keyReleased(KeyEvent event) {
++        // Forge: We wait for a second key above if the first press is a modifier
++        // but if they release the modifier then set it explicitly.
++        var key = InputConstants.getKey(event);
++        if (this.selectedKey != null && this.selectedKey.getKey() == key) {
++            this.selectedKey = null;
++            this.lastKeySelection = Util.getMillis();
++            this.keyBindsList.resetMappingAndUpdateButtons();
++        }
++        return super.keyReleased(event);
+     }
+ }

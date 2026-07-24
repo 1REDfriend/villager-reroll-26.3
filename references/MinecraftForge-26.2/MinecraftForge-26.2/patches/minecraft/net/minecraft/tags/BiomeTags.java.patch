@@ -1,0 +1,15 @@
+--- a/net/minecraft/tags/BiomeTags.java
++++ b/net/minecraft/tags/BiomeTags.java
+@@ -80,4 +_,12 @@
+     private static TagKey<Biome> create(final String name) {
+         return TagKey.create(Registries.BIOME, Identifier.withDefaultNamespace(name));
+     }
++
++    public static TagKey<Biome> create(String namepsace, String path) {
++        return create(Identifier.fromNamespaceAndPath(namepsace, path));
++    }
++
++    public static TagKey<Biome> create(Identifier name) {
++        return TagKey.create(Registries.BIOME, name);
++    }
+ }

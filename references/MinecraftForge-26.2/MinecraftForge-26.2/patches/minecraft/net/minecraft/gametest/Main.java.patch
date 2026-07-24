@@ -1,0 +1,11 @@
+--- a/net/minecraft/gametest/Main.java
++++ b/net/minecraft/gametest/Main.java
+@@ -5,6 +_,8 @@
+ 
+ public class Main {
+     public static void main(final String[] args) throws Exception {
++        System.setProperty("forge.enableGameTest", "true");
++        System.setProperty("forge.gameTestServer", "true");
+         SharedConstants.tryDetectVersion();
+         GameTestMainUtil.runGameTestServer(args, path -> {});
+     }

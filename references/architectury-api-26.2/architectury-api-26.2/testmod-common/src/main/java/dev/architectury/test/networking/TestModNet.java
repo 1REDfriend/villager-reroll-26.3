@@ -1,0 +1,103 @@
+/*
+ * This file is part of architectury.
+ * Copyright (C) 2020, 2021, 2022 architectury
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
+package dev.architectury.test.networking;
+
+import dev.architectury.event.events.client.ClientPlayerEvent;
+import dev.architectury.event.events.common.PlayerEvent;
+import dev.architectury.networking.NetworkManager;
+import dev.architectury.networking.transformers.SplitPacketTransformer;
+import dev.architectury.test.TestMod;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.List;
+
+public interface TestModNet {
+    CustomPacketPayload.Type<ServerToClientTestPayload> SERVER_TO_CLIENT_TEST_PAYLOAD = new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(TestMod.MOD_ID, "s2c_test_payload"));
+    CustomPacketPayload.Type<BigDataPayload> BIG_DATA_PAYLOAD = new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(TestMod.MOD_ID, "big_data_payload"));
+    String BIG_STRING = StringUtils.repeat('a', 100000);
+
+    static void initialize() {
+        NetworkManager.registerC2S(ButtonClickedMessage.TYPE, ButtonClickedMessage.STREAM_CODEC, ButtonClickedMessage::handle);
+        NetworkManager.registerS2C(SyncDataMessage.TYPE, SyncDataMessage.STREAM_CODEC, SyncDataMessage::handle);
+        NetworkManager.registerReceiver(NetworkManager.Side.C2S, BIG_DATA_PAYLOAD, new StreamCodec<>() {
+            @Override
+            public BigDataPayload decode(RegistryFriendlyByteBuf object) {
+                return new BigDataPayload(object.readUtf(Integer.MAX_VALUE / 4));
+            }
+
+            @Override
+            public void encode(RegistryFriendlyByteBuf object, BigDataPayload payload) {
+                object.writeUtf(payload.data, Integer.MAX_VALUE / 4);
+            }
+        }, List.of(new SplitPacketTransformer()), (value, context) -> {
+            if (value.data().equals(BIG_STRING)) {
+                TestMod.SINK.accept("Network Split Packets worked");
+            } else {
+                throw new AssertionError(value.data());
+            }
+        });
+
+        NetworkManager.registerS2C(SERVER_TO_CLIENT_TEST_PAYLOAD, new StreamCodec<>() {
+            @Override
+            public ServerToClientTestPayload decode(RegistryFriendlyByteBuf object) {
+                return new ServerToClientTestPayload(object.readLong());
+            }
+
+            @Override
+            public void encode(RegistryFriendlyByteBuf object, ServerToClientTestPayload payload) {
+                object.writeLong(payload.num);
+            }
+        }, (value, context) -> {
+            if (value.num() == 0xA4C5E75EC7941L) {
+                TestMod.SINK.accept("S2C worked!, 0xA4C5E75EC7941L");
+            } else {
+                throw new AssertionError(value.num());
+            }
+        });
+
+        PlayerEvent.PLAYER_JOIN.register(player -> {
+            NetworkManager.sendToPlayer(player, new ServerToClientTestPayload(0xA4C5E75EC7941L));
+        });
+    }
+
+    static void initializeClient() {
+        ClientPlayerEvent.CLIENT_PLAYER_JOIN.register(player -> {
+            NetworkManager.sendToServer(new BigDataPayload(BIG_STRING));
+        });
+    }
+
+    record BigDataPayload(String data) implements CustomPacketPayload {
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TestModNet.BIG_DATA_PAYLOAD;
+        }
+    }
+
+    record ServerToClientTestPayload(long num) implements CustomPacketPayload {
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TestModNet.SERVER_TO_CLIENT_TEST_PAYLOAD;
+        }
+    }
+}

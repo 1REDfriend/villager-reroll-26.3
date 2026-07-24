@@ -1,0 +1,50 @@
+--- a/net/minecraft/data/recipes/RecipeProvider.java
++++ b/net/minecraft/data/recipes/RecipeProvider.java
+@@ -908,14 +_,14 @@
+                         final List<CompletableFuture<?>> tasks = new ArrayList<>();
+                         RecipeOutput recipeOutput = new RecipeOutput() {
+                             @Override
+-                            public void accept(final ResourceKey<Recipe<?>> id, final Recipe<?> recipe, final @Nullable AdvancementHolder advancementHolder) {
++                            public void accept(final ResourceKey<Recipe<?>> id, final Recipe<?> recipe, net.minecraft.resources.@Nullable Identifier advancementId, com.google.gson.@Nullable JsonElement advancement) {
+                                 if (!allRecipes.add(id)) {
+                                     throw new IllegalStateException("Duplicate recipe " + id.identifier());
+                                 }
+ 
+                                 this.saveRecipe(id, recipe);
+-                                if (advancementHolder != null) {
+-                                    this.saveAdvancement(advancementHolder);
++                                if (advancement != null && advancementId != null) {
++                                    this.saveAdvancement(advancementId, advancement);
+                                 }
+                             }
+ 
+@@ -929,19 +_,26 @@
+                                 AdvancementHolder root = Advancement.Builder.recipeAdvancement()
+                                     .addCriterion("impossible", CriteriaTriggers.IMPOSSIBLE.createCriterion(new ImpossibleTrigger.TriggerInstance()))
+                                     .build(RecipeBuilder.ROOT_RECIPE_ADVANCEMENT);
+-                                this.saveAdvancement(root);
++                                var ops = registry().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE);
++                                var json = Advancement.CODEC.encodeStart(ops, root.value()).getOrThrow(IllegalStateException::new);
++                                this.saveAdvancement(root.id(), json);
+                             }
+ 
+                             private void saveRecipe(final ResourceKey<Recipe<?>> id, final Recipe<?> recipe) {
+                                 tasks.add(DataProvider.saveStable(cache, registries, Recipe.CODEC, recipe, recipePathProvider.json(id.identifier())));
+                             }
+ 
+-                            private void saveAdvancement(final AdvancementHolder advancementHolder) {
++                            private void saveAdvancement(net.minecraft.resources.Identifier id, com.google.gson.JsonElement advancement) {
+                                 tasks.add(
+                                     DataProvider.saveStable(
+-                                        cache, registries, Advancement.CODEC, advancementHolder.value(), advancementPathProvider.json(advancementHolder.id())
++                                        cache, advancement, advancementPathProvider.json(id)
+                                     )
+                                 );
++                            }
++
++                            @Override
++                            public HolderLookup.Provider registry() {
++                                return registries;
+                             }
+                         };
+                         this.createRecipeProvider(registries, recipeOutput).buildRecipes();

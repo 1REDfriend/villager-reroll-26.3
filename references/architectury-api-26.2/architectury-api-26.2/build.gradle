@@ -1,0 +1,122 @@
+import java.text.SimpleDateFormat
+
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+    }
+}
+
+plugins {
+    id "architectury-plugin" version "3.5-SNAPSHOT"
+    id "dev.architectury.loom-no-remap" version "1.17-SNAPSHOT" apply false
+    id "com.gradleup.shadow" version "9.4.2" apply false
+    id "com.github.hierynomus.license" version "0.16.1" apply false
+    id "me.shedaniel.unified-publishing" version "0.1.+" apply false
+    id "maven-publish"
+}
+
+architectury {
+    minecraft = rootProject.minecraft_version
+}
+
+allprojects {
+    apply plugin: "java-library"
+    apply plugin: "architectury-plugin"
+    apply plugin: "com.github.hierynomus.license"
+
+    group = rootProject.maven_group
+
+    ext {
+        isSnapshot = System.getenv("PR_NUM") != null
+        runNumber = System.getenv("GITHUB_RUN_NUMBER") ?: "9999"
+    }
+
+    if (!ext.isSnapshot) {
+        version = rootProject.base_version + "." + ext.runNumber + rootProject.version_suffix
+        ext.archivesBaseName = rootProject.archives_base_name
+    } else {
+        version = rootProject.base_version + "-PR." + System.getenv("PR_NUM") + "." + ext.runNumber
+        ext.archivesBaseName = rootProject.archives_base_name_snapshot
+    }
+
+    base {
+        archivesName = archivesBaseName + "-$project.name"
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = "UTF-8"
+        options.release = 25
+    }
+
+    javadoc {
+        // common javadoc has references to platform code that cannot be resolved normally
+        failOnError = false
+    }
+
+    license {
+        header = rootProject.file("HEADER")
+        ext {
+            name = "architectury"
+            year = "2020, 2021, 2022"
+        }
+        include "**/*.java"
+        exclude "**/NbtType.java"
+        ignoreFailures = true
+    }
+
+    ext {
+        releaseChangelog = {
+            def dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm")
+            dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
+            def branch
+            if (System.env.BRANCH_NAME) {
+                branch = System.env.BRANCH_NAME
+                branch = branch.substring(branch.lastIndexOf("/") + 1)
+            } else {
+                branch = "git rev-parse --abbrev-ref HEAD".execute().in.text.trim()
+            }
+            if (branch == "HEAD") {
+                branch = "git rev-parse --short HEAD".execute().in.text.trim()
+            }
+            def time = dateFormat.format(new Date())
+            def changes = new StringBuilder()
+            changes << "## Architectury v$project.version for $project.supported_version\nUpdated at **$time**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/$branch)"
+            def proc = "git log --max-count=200 --pretty=format:%s".execute()
+            proc.in.eachLine { line ->
+                def processedLine = line.toString()
+                if (!processedLine.contains("New translations") && !processedLine.contains("Merge") && !processedLine.contains("branch")) {
+                    changes << "\n- ${processedLine.capitalize()}"
+                }
+            }
+            proc.waitFor()
+            return changes.toString()
+        }
+    }
+
+    java {
+        withSourcesJar()
+    }
+}
+
+subprojects {
+    apply plugin: "dev.architectury.loom-no-remap"
+
+    dependencies {
+        minecraft "com.mojang:minecraft:${rootProject.architectury.minecraft}"
+    }
+
+    repositories {
+        maven { url "https://maven.neoforged.net/releases/" }
+        if (rootProject.neoforge_pr != "") {
+            maven {
+                url "https://prmaven.neoforged.net/NeoForge/pr$rootProject.neoforge_pr"
+                content {
+                    includeModule("net.neoforged", "neoforge")
+                }
+            }
+        }
+    }
+}
+
+task licenseFormatAll
+subprojects { p -> licenseFormatAll.dependsOn("${p.path}:licenseFormat") }

@@ -1,0 +1,10 @@
+--- a/net/minecraft/world/item/enchantment/effects/ReplaceDisk.java
++++ b/net/minecraft/world/item/enchantment/effects/ReplaceDisk.java
+@@ -47,6 +_,7 @@
+         for (BlockPos pos : BlockPos.betweenClosed(centerBlock.offset(-dist, 0, -dist), centerBlock.offset(dist, Math.min(height - 1, 0), dist))) {
+             if (pos.distToCenterSqr(position.x(), pos.getY() + 0.5, position.z()) < Mth.square(dist)
+                 && this.predicate.map(p -> p.test(serverLevel, pos)).orElse(true)
++                && !net.minecraftforge.event.ForgeEventFactory.onBlockPlace(entity, net.minecraftforge.common.util.BlockSnapshot.create(serverLevel.dimension(), serverLevel, centerBlock), net.minecraft.core.Direction.UP)
+                 && serverLevel.setBlockAndUpdate(pos, this.blockState.getState(serverLevel, random, pos))) {
+                 this.triggerGameEvent.ifPresent(event -> serverLevel.gameEvent(entity, (Holder<GameEvent>)event, pos));
+             }

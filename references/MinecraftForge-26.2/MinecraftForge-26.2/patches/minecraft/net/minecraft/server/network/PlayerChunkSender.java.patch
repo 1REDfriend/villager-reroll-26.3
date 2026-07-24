@@ -1,0 +1,18 @@
+--- a/net/minecraft/server/network/PlayerChunkSender.java
++++ b/net/minecraft/server/network/PlayerChunkSender.java
+@@ -44,6 +_,7 @@
+     public void dropChunk(final ServerPlayer player, final ChunkPos pos) {
+         if (!this.pendingChunks.remove(pos.pack()) && player.isAlive()) {
+             player.connection.send(new ClientboundForgetLevelChunkPacket(pos));
++            net.minecraftforge.event.ForgeEventFactory.fireChunkUnWatch(player, pos, (ServerLevel)player.level());
+         }
+     }
+ 
+@@ -81,6 +_,7 @@
+         }
+ 
+         level.debugSynchronizers().startTrackingChunk(connection.player, chunk.getPos());
++        net.minecraftforge.event.ForgeEventFactory.fireChunkWatch(connection.player, chunk, level);
+     }
+ 
+     private List<LevelChunk> collectChunksToSend(final ChunkMap chunkMap, final ChunkPos playerPos) {

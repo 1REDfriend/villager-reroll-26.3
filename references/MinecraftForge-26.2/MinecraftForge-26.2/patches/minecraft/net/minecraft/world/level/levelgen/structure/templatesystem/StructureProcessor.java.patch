@@ -1,0 +1,51 @@
+--- a/net/minecraft/world/level/levelgen/structure/templatesystem/StructureProcessor.java
++++ b/net/minecraft/world/level/levelgen/structure/templatesystem/StructureProcessor.java
+@@ -8,6 +_,7 @@
+ import org.jspecify.annotations.Nullable;
+ 
+ public interface StructureProcessor {
++    /** @deprecated Use variant with StructureTemplate argument */
+     default StructureTemplate.@Nullable StructureBlockInfo processBlock(
+         final LevelReader level,
+         final BlockPos targetPosition,
+@@ -19,6 +_,18 @@
+         return processedBlockInfo;
+     }
+ 
++    default StructureTemplate.@Nullable StructureBlockInfo processBlock(
++        final LevelReader level,
++        final BlockPos targetPosition,
++        final BlockPos referencePos,
++        final BlockPos templateRelativePos,
++        final StructureTemplate.StructureBlockInfo processedBlockInfo,
++        final StructurePlaceSettings settings,
++        final @Nullable StructureTemplate template
++    ) {
++       return processBlock(level, targetPosition, referencePos, templateRelativePos, processedBlockInfo, settings);
++    }
++
+     MapCodec<? extends StructureProcessor> codec();
+ 
+     default List<StructureTemplate.StructureBlockInfo> finalizeProcessing(
+@@ -30,6 +_,21 @@
+         final StructurePlaceSettings settings
+     ) {
+         return processedBlockInfoList;
++    }
++
++    /**
++     * Use this method to process entities from a structure in much the same way as
++     * blocks, parameters are analogous.
++     */
++    default StructureTemplate.@Nullable StructureEntityInfo processEntity(
++        final LevelReader level,
++        final BlockPos targetPosition,
++        final StructureTemplate.StructureEntityInfo originalEntityInfo,
++        final StructureTemplate.StructureEntityInfo processedEntityInfo,
++        final StructurePlaceSettings settings,
++        final @Nullable StructureTemplate template
++    ) {
++       return processedEntityInfo;
+     }
+ 
+     default boolean evaluatesEntirePieceState() {

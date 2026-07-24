@@ -1,0 +1,20 @@
+--- a/net/minecraft/world/level/pathfinder/PathType.java
++++ b/net/minecraft/world/level/pathfinder/PathType.java
+@@ -1,6 +_,6 @@
+ package net.minecraft.world.level.pathfinder;
+ 
+-public enum PathType {
++public enum PathType implements net.minecraftforge.common.IExtensibleEnum {
+     BLOCKED(-1.0F),
+     OPEN(0.0F),
+     WALKABLE(0.0F),
+@@ -37,5 +_,9 @@
+ 
+     public float getMalus() {
+         return this.malus;
++    }
++
++    public static PathType create(String name, float malus) {
++       throw new IllegalArgumentException("Enum not extended");
+     }
+ }

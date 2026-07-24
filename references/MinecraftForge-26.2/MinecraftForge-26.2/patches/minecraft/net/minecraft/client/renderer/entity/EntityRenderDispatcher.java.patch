@@ -1,0 +1,24 @@
+--- a/net/minecraft/client/renderer/entity/EntityRenderDispatcher.java
++++ b/net/minecraft/client/renderer/entity/EntityRenderDispatcher.java
+@@ -207,6 +_,14 @@
+         return this.itemInHandRenderer;
+     }
+ 
++    public Map<PlayerModelType, AvatarRenderer<AbstractClientPlayer>> getPlayerRenderers() {
++        return java.util.Collections.unmodifiableMap(playerRenderers);
++    }
++
++    public Map<PlayerModelType, AvatarRenderer<ClientMannequin>> getMannequinRenderers() {
++        return java.util.Collections.unmodifiableMap(mannequinRenderers);
++    }
++
+     @Override
+     public void onResourceManagerReload(final ResourceManager resourceManager) {
+         EntityRendererProvider.Context context = new EntityRendererProvider.Context(
+@@ -224,5 +_,6 @@
+         this.renderers = EntityRenderers.createEntityRenderers(context);
+         this.playerRenderers = EntityRenderers.createAvatarRenderers(context);
+         this.mannequinRenderers = EntityRenderers.createAvatarRenderers(context);
++        net.minecraftforge.client.event.ForgeEventFactoryClient.onGatherLayers(renderers, playerRenderers, mannequinRenderers, context);
+     }
+ }

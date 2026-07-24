@@ -1,0 +1,27 @@
+--- a/net/minecraft/client/particle/TerrainParticle.java
++++ b/net/minecraft/client/particle/TerrainParticle.java
+@@ -43,7 +_,7 @@
+         this.gCol = 0.6F;
+         this.bCol = 0.6F;
+         BlockTintSource tintSource = Minecraft.getInstance().getBlockColors().getTintSource(blockState, 0);
+-        if (tintSource != null) {
++        if (tintSource != null && net.minecraftforge.client.extensions.common.IClientBlockExtensions.of(blockState).areBreakingParticlesTinted(blockState, level, pos)) {
+             int col = tintSource.colorAsTerrainParticle(blockState, level, pos);
+             this.rCol *= (col >> 16 & 0xFF) / 255.0F;
+             this.gCol *= (col >> 8 & 0xFF) / 255.0F;
+@@ -93,8 +_,14 @@
+     ) {
+         BlockState state = options.getState();
+         return !state.isAir() && !state.is(Blocks.MOVING_PISTON) && state.shouldSpawnTerrainParticles()
+-            ? new TerrainParticle(level, x, y, z, xAux, yAux, zAux, state)
++            ? (TerrainParticle)new TerrainParticle(level, x, y, z, xAux, yAux, zAux, state).updateSprite(state, options.getPos())
+             : null;
++    }
++
++    public Particle updateSprite(BlockState state, BlockPos pos) { //FORGE: we cannot assume that the x y z of the particles match the block pos of the block.
++        if (pos != null) // There are cases where we are not able to obtain the correct source pos, and need to fallback to the non-model data version
++           this.setSprite(Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state).particleMaterial(level.getModelDataManager().getAt(pos)).sprite());
++        return this;
+     }
+ 
+     @OnlyIn(Dist.CLIENT)

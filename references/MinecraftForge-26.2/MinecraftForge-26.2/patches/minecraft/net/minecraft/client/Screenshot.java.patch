@@ -1,0 +1,30 @@
+--- a/net/minecraft/client/Screenshot.java
++++ b/net/minecraft/client/Screenshot.java
+@@ -53,14 +_,24 @@
+                     file = new File(picDir, forceName);
+                 }
+ 
++                var event = new net.minecraftforge.client.event.ScreenshotEvent(image, file);
++                if (net.minecraftforge.client.event.ScreenshotEvent.BUS.post(event)) {
++                    callback.accept(event.getCancelMessage());
++                    return;
++                }
++                final File outputFile = event.getScreenshotFile();
++
+                 Util.ioPool()
+                     .execute(
+                         () -> {
+                             try (image) {
+-                                image.writeToFile(file);
+-                                Component component = Component.literal(file.getName())
++                                image.writeToFile(outputFile);
++                                Component component = Component.literal(outputFile.getName())
+                                     .withStyle(ChatFormatting.UNDERLINE)
+-                                    .withStyle(s -> s.withClickEvent(new ClickEvent.OpenFile(file.getAbsoluteFile())));
++                                    .withStyle(s -> s.withClickEvent(new ClickEvent.OpenFile(outputFile.getAbsoluteFile())));
++                                if (event.getResultMessage() != null)
++                                    callback.accept(event.getResultMessage());
++                                else
+                                 callback.accept(Component.translatable("screenshot.success", component));
+                             } catch (Exception e) {
+                                 LOGGER.warn("Couldn't save screenshot", e);

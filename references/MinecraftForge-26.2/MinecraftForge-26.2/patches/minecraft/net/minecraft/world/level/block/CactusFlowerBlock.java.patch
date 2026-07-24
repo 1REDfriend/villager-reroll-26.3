@@ -1,0 +1,10 @@
+--- a/net/minecraft/world/level/block/CactusFlowerBlock.java
++++ b/net/minecraft/world/level/block/CactusFlowerBlock.java
+@@ -31,6 +_,6 @@
+     @Override
+     protected boolean mayPlaceOn(final BlockState state, final BlockGetter level, final BlockPos pos) {
+         BlockState blockBelow = level.getBlockState(pos);
+-        return blockBelow.is(BlockTags.SUPPORT_OVERRIDE_CACTUS_FLOWER) || blockBelow.isFaceSturdy(level, pos, Direction.UP, SupportType.CENTER);
++        return blockBelow.is(BlockTags.SUPPORT_OVERRIDE_CACTUS_FLOWER) || blockBelow.isFaceSturdy(level, pos, Direction.UP, SupportType.CENTER) || blockBelow.getBlock() instanceof FarmlandBlock;
+     }
+ }

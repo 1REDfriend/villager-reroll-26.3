@@ -1,0 +1,193 @@
+--- a/net/minecraft/world/item/CreativeModeTab.java
++++ b/net/minecraft/world/item/CreativeModeTab.java
+@@ -25,6 +_,12 @@
+     private Set<ItemStack> displayItemsSearchTab = ItemStackLinkedSet.createTypeAndComponentsSet();
+     private final Supplier<ItemStack> iconGenerator;
+     private final CreativeModeTab.DisplayItemsGenerator displayItemsGenerator;
++    private final boolean hasSearchBar;
++    private final int searchBarWidth;
++    private final int labelColor;
++    private final int slotColor;
++    public final java.util.List<net.minecraft.resources.Identifier> tabsBefore;
++    public final java.util.List<net.minecraft.resources.Identifier> tabsAfter;
+ 
+     private CreativeModeTab(
+         final CreativeModeTab.Row row,
+@@ -32,7 +_,8 @@
+         final CreativeModeTab.Type type,
+         final Component displayName,
+         final Supplier<ItemStack> iconGenerator,
+-        final CreativeModeTab.DisplayItemsGenerator displayItemsGenerator
++        final CreativeModeTab.DisplayItemsGenerator displayItemsGenerator,
++        Builder builder
+     ) {
+         this.row = row;
+         this.column = column;
+@@ -40,12 +_,27 @@
+         this.iconGenerator = iconGenerator;
+         this.displayItemsGenerator = displayItemsGenerator;
+         this.type = type;
++        this.hasSearchBar = builder.hasSearchBar;
++        this.searchBarWidth = builder.searchBarWidth;
++        this.labelColor = builder.labelColor;
++        this.slotColor = builder.slotColor;
++        this.tabsBefore = java.util.List.copyOf(builder.tabsBefore);
++        this.tabsAfter = java.util.List.copyOf(builder.tabsAfter);
++    }
++
++    protected CreativeModeTab(CreativeModeTab.Builder builder) {
++       this(builder.row, builder.column, builder.type, builder.displayName, builder.iconGenerator, builder.displayItemsGenerator, builder);
++    }
++
++    public static CreativeModeTab.Builder builder() {
++       return new CreativeModeTab.Builder(Row.TOP, 0);
+     }
+ 
+     public static Identifier createTextureLocation(final String name) {
+         return Identifier.withDefaultNamespace("textures/gui/container/creative_inventory/tab_" + name + ".png");
+     }
+ 
++    /** @deprecated Forge: use {@link #builder()} **/
+     public static CreativeModeTab.Builder builder(final CreativeModeTab.Row row, final int column) {
+         return new CreativeModeTab.Builder(row, column);
+     }
+@@ -100,7 +_,7 @@
+ 
+     public void buildContents(final CreativeModeTab.ItemDisplayParameters parameters) {
+         CreativeModeTab.ItemDisplayBuilder displayList = new CreativeModeTab.ItemDisplayBuilder(this, parameters.enabledFeatures);
+-        this.displayItemsGenerator.accept(parameters, displayList);
++        net.minecraftforge.common.ForgeHooks.onCreativeModeTabBuildContents(this, this.displayItemsGenerator, parameters, displayList);
+         this.displayItems = displayList.tabContents;
+         this.displayItemsSearchTab = displayList.searchTabContents;
+     }
+@@ -117,6 +_,22 @@
+         return this.displayItemsSearchTab.contains(stack);
+     }
+ 
++    public boolean hasSearchBar() {
++        return this.hasSearchBar;
++    }
++
++    public int getSearchBarWidth() {
++        return searchBarWidth;
++    }
++
++    public int getLabelColor() {
++        return labelColor;
++    }
++
++    public int getSlotColor() {
++        return slotColor;
++    }
++
+     public static class Builder {
+         private static final CreativeModeTab.DisplayItemsGenerator EMPTY_GENERATOR = (parameters, output) -> {};
+         private final CreativeModeTab.Row row;
+@@ -129,6 +_,14 @@
+         private boolean alignedRight = false;
+         private CreativeModeTab.Type type = CreativeModeTab.Type.CATEGORY;
+         private Identifier backgroundTexture = CreativeModeTab.DEFAULT_BACKGROUND;
++        private boolean hasSearchBar = false;
++        private int searchBarWidth = 89;
++        private int labelColor = 0xff404040;
++        private int slotColor = -2130706433;
++        private java.util.function.Function<CreativeModeTab.Builder, CreativeModeTab> tabFactory =
++            builder -> new CreativeModeTab(builder.row, builder.column, builder.type, builder.displayName, builder.iconGenerator, builder.displayItemsGenerator, builder);
++        private final java.util.List<net.minecraft.resources.Identifier> tabsBefore = new java.util.ArrayList<>();
++        private final java.util.List<net.minecraft.resources.Identifier> tabsAfter = new java.util.ArrayList<>();
+ 
+         public Builder(final CreativeModeTab.Row row, final int column) {
+             this.row = row;
+@@ -167,6 +_,9 @@
+ 
+         protected CreativeModeTab.Builder type(final CreativeModeTab.Type type) {
+             this.type = type;
++            if (type == Type.SEARCH) {
++                return this.withSearchBar();
++            }
+             return this;
+         }
+ 
+@@ -175,12 +_,81 @@
+             return this;
+         }
+ 
++        /**
++         * Gives this tab a search bar.
++         * <p>Note that, if using a custom {@link #withBackgroundLocation(net.minecraft.resources.Identifier) background image}, you will need to make sure that your image contains the input box and the scroll bar.</p>
++         */
++        public CreativeModeTab.Builder withSearchBar() {
++            this.hasSearchBar = true;
++            if (this.backgroundTexture == CreativeModeTab.DEFAULT_BACKGROUND)
++                return this.backgroundTexture(createTextureLocation("item_search"));
++            return this;
++        }
++
++        /**
++         * Gives this tab a search bar, with a specific width.
++         * @param searchBarWidth the width of the search bar
++         */
++        public CreativeModeTab.Builder withSearchBar(int searchBarWidth) {
++            this.searchBarWidth = searchBarWidth;
++            return withSearchBar();
++        }
++
++        /**
++         * Sets the color of the tab label.
++         */
++        public CreativeModeTab.Builder withLabelColor(int labelColor) {
++            this.labelColor = labelColor;
++            return this;
++        }
++
++        /**
++         * Sets the color of tab's slots.
++         */
++        public CreativeModeTab.Builder withSlotColor(int slotColor) {
++            this.slotColor = slotColor;
++            return this;
++        }
++
++        public CreativeModeTab.Builder withTabFactory(java.util.function.Function<CreativeModeTab.Builder, CreativeModeTab> tabFactory) {
++            this.tabFactory = tabFactory;
++            return this;
++        }
++
++        /** Define tabs that should come <i>before</i> this tab. This tab will be placed <strong>after</strong> the {@code tabs}. **/
++        public CreativeModeTab.Builder withTabsBefore(net.minecraft.resources.Identifier... tabs) {
++            this.tabsBefore.addAll(java.util.List.of(tabs));
++            return this;
++        }
++
++        /** Define tabs that should come <i>after</i> this tab. This tab will be placed <strong>before</strong> the {@code tabs}.**/
++        public CreativeModeTab.Builder withTabsAfter(net.minecraft.resources.Identifier... tabs) {
++            this.tabsAfter.addAll(java.util.List.of(tabs));
++            return this;
++        }
++
++        /** Define tabs that should come <i>before</i> this tab. This tab will be placed <strong>after</strong> the {@code tabs}. **/
++        @SafeVarargs
++        public final CreativeModeTab.Builder withTabsBefore(net.minecraft.resources.ResourceKey<CreativeModeTab>... tabs) {
++            for (var tab : tabs)
++                this.tabsBefore.add(tab.identifier());
++            return this;
++        }
++
++        /** Define tabs that should come <i>after</i> this tab. This tab will be placed <strong>before</strong> the {@code tabs}.**/
++        @SafeVarargs
++        public final CreativeModeTab.Builder withTabsAfter(net.minecraft.resources.ResourceKey<CreativeModeTab>... tabs) {
++            for (var tab : tabs)
++                this.tabsAfter.add(tab.identifier());
++            return this;
++        }
++
+         public CreativeModeTab build() {
+             if ((this.type == CreativeModeTab.Type.HOTBAR || this.type == CreativeModeTab.Type.INVENTORY) && this.displayItemsGenerator != EMPTY_GENERATOR) {
+                 throw new IllegalStateException("Special tabs can't have display items");
+             }
+ 
+-            CreativeModeTab tab = new CreativeModeTab(this.row, this.column, this.type, this.displayName, this.iconGenerator, this.displayItemsGenerator);
++            CreativeModeTab tab = this.tabFactory.apply(this);
+             tab.alignedRight = this.alignedRight;
+             tab.showTitle = this.showTitle;
+             tab.canScroll = this.canScroll;

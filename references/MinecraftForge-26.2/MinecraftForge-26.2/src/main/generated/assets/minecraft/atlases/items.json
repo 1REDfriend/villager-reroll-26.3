@@ -1,0 +1,14 @@
+{
+  "sources": [
+    {
+      "type": "minecraft:single",
+      "resource": "minecraft:block/lava_still",
+      "sprite": "minecraft:item/lava_still"
+    },
+    {
+      "type": "minecraft:single",
+      "resource": "minecraft:block/water_still",
+      "sprite": "minecraft:item/water_still"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+--- a/net/minecraft/client/resources/model/cuboid/ItemTransform.java
++++ b/net/minecraft/client/resources/model/cuboid/ItemTransform.java
+@@ -17,7 +_,10 @@
+ import org.joml.Vector3fc;
+ 
+ @OnlyIn(Dist.CLIENT)
+-public record ItemTransform(Vector3fc rotation, Vector3fc translation, Vector3fc scale) {
++public record ItemTransform(Vector3fc rotation, Vector3fc translation, Vector3fc scale, Vector3fc rightRotation) {
++    public ItemTransform(Vector3fc rotation, Vector3fc translation, Vector3fc scale) {
++        this(rotation, translation, scale, new Vector3f());
++    }
+     public static final ItemTransform NO_TRANSFORM = new ItemTransform(new Vector3f(), new Vector3f(), new Vector3f(1.0F, 1.0F, 1.0F));
+ 
+     public void apply(final boolean applyLeftHandFix, final PoseStack.Pose pose) {
+@@ -63,7 +_,7 @@
+             translation.set(Mth.clamp(translation.x, -5.0F, 5.0F), Mth.clamp(translation.y, -5.0F, 5.0F), Mth.clamp(translation.z, -5.0F, 5.0F));
+             Vector3f scale = getVector3f(object, "scale", DEFAULT_SCALE);
+             scale.set(Mth.clamp(scale.x, -4.0F, 4.0F), Mth.clamp(scale.y, -4.0F, 4.0F), Mth.clamp(scale.z, -4.0F, 4.0F));
+-            return new ItemTransform(rotation, translation, scale);
++            return new ItemTransform(rotation, translation, scale, this.getVector3f(object, "right_rotation", DEFAULT_ROTATION));
+         }
+ 
+         private static Vector3f getVector3f(final JsonObject object, final String key, final Vector3fc def) {

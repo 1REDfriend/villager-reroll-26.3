@@ -1,0 +1,27 @@
+--- a/net/minecraft/core/registries/BuiltInRegistries.java
++++ b/net/minecraft/core/registries/BuiltInRegistries.java
+@@ -389,11 +_,13 @@
+     }
+ 
+     private static <T, R extends WritableRegistry<T>> R internalRegister(
+-        final ResourceKey<? extends Registry<T>> name, final R registry, final BuiltInRegistries.RegistryBootstrap<T> loader
++        final ResourceKey<? extends Registry<T>> name, R registry, final BuiltInRegistries.RegistryBootstrap<T> loader
+     ) {
+         Bootstrap.checkBootstrapCalled(() -> "registry " + name.identifier());
+         Identifier key = name.identifier();
+-        LOADERS.put(key, () -> loader.run(registry));
++        var maybeWrapped = net.minecraftforge.registries.GameData.getWrapper(name, registry);
++        registry = maybeWrapped;
++        LOADERS.put(key, () -> loader.run(maybeWrapped));
+         WRITABLE_REGISTRY.register((ResourceKey)name, registry, RegistrationInfo.BUILT_IN);
+         return registry;
+     }
+@@ -429,7 +_,7 @@
+ 
+             if (r instanceof DefaultedRegistry) {
+                 Identifier key = ((DefaultedRegistry)r).getDefaultKey();
+-                Objects.requireNonNull(r.getValue(key), "Missing default of DefaultedMappedRegistry: " + key);
++                Objects.requireNonNull(r.getValue(key), "Missing default of DefaultedMappedRegistry: " + r.key() + " - " + key);
+             }
+         });
+     }

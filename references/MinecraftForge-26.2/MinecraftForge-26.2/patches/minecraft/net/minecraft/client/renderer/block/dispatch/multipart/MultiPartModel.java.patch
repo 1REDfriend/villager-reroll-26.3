@@ -1,0 +1,36 @@
+--- a/net/minecraft/client/renderer/block/dispatch/multipart/MultiPartModel.java
++++ b/net/minecraft/client/renderer/block/dispatch/multipart/MultiPartModel.java
+@@ -38,12 +_,24 @@
+     }
+ 
+     @Override
++    public Material.Baked particleMaterial(net.minecraftforge.client.model.data.ModelData data) {
++        if (this.models == null)
++            this.models = this.shared.selectModels(this.blockState);
++        return this.models.getFirst().particleMaterial(data);
++    }
++
++    @Override
+     public @BakedQuad.MaterialFlags int materialFlags() {
+         return this.shared.materialFlags;
+     }
+ 
+     @Override
+     public void collectParts(final RandomSource random, final List<BlockStateModelPart> output) {
++        collectParts(random, output, net.minecraftforge.client.model.data.ModelData.EMPTY);
++    }
++
++    @Override
++    public void collectParts(final RandomSource random, final List<BlockStateModelPart> output, net.minecraftforge.client.model.data.ModelData data) {
+         if (this.models == null) {
+             this.models = this.shared.selectModels(this.blockState);
+         }
+@@ -52,7 +_,7 @@
+ 
+         for (BlockStateModel model : this.models) {
+             random.setSeed(seed);
+-            model.collectParts(random, output);
++            model.collectParts(random, output, data);
+         }
+     }
+ 

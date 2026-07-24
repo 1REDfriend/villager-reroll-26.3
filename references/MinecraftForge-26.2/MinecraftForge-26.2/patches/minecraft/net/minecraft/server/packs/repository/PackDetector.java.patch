@@ -1,0 +1,27 @@
+--- a/net/minecraft/server/packs/repository/PackDetector.java
++++ b/net/minecraft/server/packs/repository/PackDetector.java
+@@ -19,6 +_,10 @@
+     }
+ 
+     public @Nullable T detectPackResources(final Path content, final List<ForbiddenSymlinkInfo> issues) throws IOException {
++        return detectPackResources(content, issues, true);
++    }
++    @Nullable
++    public T detectPackResources(Path content, List<ForbiddenSymlinkInfo> issues, boolean requireMeta) throws IOException {
+         Path targetContext = content;
+ 
+         BasicFileAttributes attributes;
+@@ -43,10 +_,11 @@
+             if (!issues.isEmpty()) {
+                 return null;
+             } else {
+-                return !Files.isRegularFile(targetContext.resolve("pack.mcmeta")) ? null : this.createDirectoryPack(targetContext);
++                return !Files.isRegularFile(targetContext.resolve("pack.mcmeta")) && requireMeta ? null : this.createDirectoryPack(targetContext);
+             }
+         } else {
+-            return attributes.isRegularFile() && targetContext.getFileName().toString().endsWith(".zip") ? this.createZipPack(targetContext) : null;
++            var name = targetContext.getFileName().toString();
++            return attributes.isRegularFile() && (name.endsWith(".zip") || name.endsWith(".jar")) ? this.createZipPack(targetContext) : null;
+         }
+     }
+ 

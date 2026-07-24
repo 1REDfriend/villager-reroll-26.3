@@ -1,0 +1,11 @@
+--- a/net/minecraft/core/BlockPos.java
++++ b/net/minecraft/core/BlockPos.java
+@@ -29,7 +_,7 @@
+ import org.apache.commons.lang3.Validate;
+ 
+ @Immutable
+-public class BlockPos extends Vec3i {
++public class BlockPos extends Vec3i implements net.minecraftforge.common.extensions.IForgeBlockPos {
+     public static final Codec<BlockPos> CODEC = Codec.INT_STREAM
+         .<BlockPos>comapFlatMap(
+             input -> Util.fixedSize(input, 3).map(ints -> new BlockPos(ints[0], ints[1], ints[2])), pos -> IntStream.of(pos.getX(), pos.getY(), pos.getZ())

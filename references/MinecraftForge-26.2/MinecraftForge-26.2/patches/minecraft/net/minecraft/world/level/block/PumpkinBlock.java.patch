@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/level/block/PumpkinBlock.java
++++ b/net/minecraft/world/level/block/PumpkinBlock.java
+@@ -43,7 +_,7 @@
+         final InteractionHand hand,
+         final BlockHitResult hitResult
+     ) {
+-        if (!itemStack.is(Items.SHEARS)) {
++        if (!itemStack.canPerformAction(net.minecraftforge.common.ToolActions.SHEARS_CARVE)) {
+             return super.useItemOn(itemStack, state, level, pos, player, hand, hitResult);
+         } else if (level instanceof ServerLevel serverLevel) {
+             Direction clickedDirection = hitResult.getDirection();

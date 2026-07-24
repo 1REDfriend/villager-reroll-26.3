@@ -1,0 +1,45 @@
+--- a/net/minecraft/client/resources/model/cuboid/ItemModelGenerator.java
++++ b/net/minecraft/client/resources/model/cuboid/ItemModelGenerator.java
+@@ -52,8 +_,8 @@
+         QuadCollection singleResult = null;
+         QuadCollection.Builder builder = null;
+ 
+-        for (int layerIndex = 0; layerIndex < LAYERS.size(); layerIndex++) {
+-            String textureReference = LAYERS.get(layerIndex);
++        for (int layerIndex = 0; true; layerIndex++) { // Forge: Allow for more layers
++            String textureReference = String.format(java.util.Locale.ROOT, "layer%d", layerIndex);
+             Material material = textureSlots.getMaterial(textureReference);
+             if (material == null) {
+                 break;
+@@ -83,17 +_,29 @@
+     public static void bakeExtrudedSprite(
+         final QuadCollection.Builder builder, final ModelBaker.Interner interner, final ModelState modelState, final BakedQuad.MaterialInfo materialInfo
+     ) {
++        bakeExtrudedSprite(builder, interner, modelState, materialInfo, materialInfo);
++    }
++
++    public static void bakeExtrudedSprite(
++        final QuadCollection.Builder builder, final ModelBaker.Interner interner, final ModelState modelState, final BakedQuad.MaterialInfo materialInfo, final BakedQuad.MaterialInfo template
++    ) {
+         Vector3f from = new Vector3f(0.0F, 0.0F, 7.5F);
+         Vector3f to = new Vector3f(16.0F, 16.0F, 8.5F);
+         builder.addUnculledFace(FaceBakery.bakeQuad(interner, from, to, SOUTH_FACE_UVS, Quadrant.R0, materialInfo, Direction.SOUTH, modelState, null));
+         builder.addUnculledFace(FaceBakery.bakeQuad(interner, from, to, NORTH_FACE_UVS, Quadrant.R0, materialInfo, Direction.NORTH, modelState, null));
+-        bakeSideFaces(builder, interner, modelState, materialInfo);
++        bakeSideFaces(builder, interner, modelState, materialInfo, template);
+     }
+ 
+     public static void bakeSideFaces(
+         final QuadCollection.Builder builder, final ModelBaker.Interner interner, final ModelState modelState, final BakedQuad.MaterialInfo materialInfo
+     ) {
+-        SpriteContents sprite = materialInfo.sprite().contents();
++        bakeSideFaces(builder, interner, modelState, materialInfo, materialInfo);
++    }
++
++    public static void bakeSideFaces(
++        final QuadCollection.Builder builder, final ModelBaker.Interner interner, final ModelState modelState, final BakedQuad.MaterialInfo materialInfo, final BakedQuad.MaterialInfo template
++    ) {
++        SpriteContents sprite = template.sprite().contents();
+         float xScale = 16.0F / sprite.width();
+         float yScale = 16.0F / sprite.height();
+         Vector3f from = new Vector3f();

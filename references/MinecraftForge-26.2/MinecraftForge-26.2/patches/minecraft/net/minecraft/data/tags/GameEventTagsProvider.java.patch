@@ -1,0 +1,13 @@
+--- a/net/minecraft/data/tags/GameEventTagsProvider.java
++++ b/net/minecraft/data/tags/GameEventTagsProvider.java
+@@ -60,6 +_,10 @@
+         super(output, Registries.GAME_EVENT, lookupProvider);
+     }
+ 
++    public GameEventTagsProvider(final PackOutput output, final CompletableFuture<HolderLookup.Provider> lookupProvider, String modId, @org.jetbrains.annotations.Nullable net.minecraftforge.common.data.ExistingFileHelper existingFileHelper) {
++        super(output, Registries.GAME_EVENT, lookupProvider, modId, existingFileHelper);
++    }
++
+     @Override
+     protected void addTags(final HolderLookup.Provider registries) {
+         this.tag(GameEventTags.VIBRATIONS).addAll(VIBRATIONS_EXCEPT_FLAP).addAll(VibrationSystem.RESONANCE_EVENTS).add(GameEvent.FLAP.key());

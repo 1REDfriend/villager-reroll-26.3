@@ -1,0 +1,42 @@
+--- a/net/minecraft/client/gui/components/Button.java
++++ b/net/minecraft/client/gui/components/Button.java
+@@ -39,6 +_,12 @@
+         this.createNarration = createNarration;
+     }
+ 
++    // Forge (GH-9238)
++    protected Button(Builder builder) {
++        this(builder.x, builder.y, builder.width, builder.height, builder.message, builder.onPress, builder.createNarration);
++        this.setTooltip(builder.tooltip);
++    }
++
+     @Override
+     public void onPress(final InputWithModifiers input) {
+         this.onPress.onPress(this);
+@@ -102,9 +_,12 @@
+         }
+ 
+         public Button build() {
+-            Button button = new Button.Plain(this.x, this.y, this.width, this.height, this.message, this.onPress, this.createNarration);
+-            button.setTooltip(this.tooltip);
+-            return button;
++            return build(Button.Plain::new);
++        }
++
++        // Forge (GH-9238)
++        public Button build(java.util.function.Function<Builder, Button> builder) {
++            return builder.apply(this);
+         }
+     }
+ 
+@@ -130,6 +_,10 @@
+             final Button.CreateNarration createNarration
+         ) {
+             super(x, y, width, height, message, onPress, createNarration);
++        }
++
++        protected Plain(Builder builder) {
++            super(builder);
+         }
+ 
+         @Override

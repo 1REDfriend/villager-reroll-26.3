@@ -5,6 +5,7 @@ import dev.isxander.yacl3.api.controller.IntegerFieldControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.StringControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
+import com.joplayx.client.VillagerRerollClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -88,7 +89,7 @@ public class RerollerConfigScreen {
                                 "Sets the lectern position to the block you are currently looking at."
                                 + "\n\nAim your crosshair at the block where you want"
                                 + "\nthe lectern placed, then click this button."
-                                  + "\n\nOr press L in-game while looking at the block."
+                                  + "\n\nOr press " + VillagerRerollClient.setPositionKey.getTranslatedKeyMessage().getString() + " in-game while looking at the block."
 				)))
                                 .text(Component.literal(
                                         mc.player != null
@@ -103,7 +104,7 @@ public class RerollerConfigScreen {
                                 BlockPos pos = blockHit.getBlockPos();
                                 cfg.setLecternPos(pos);
                                 RerollerConfig.save();
-                                mc.setScreen(create(parent));
+                                mc.gui.setScreen(create(parent));
                                 } else if (mc.player != null) {
                                  mc.player.sendSystemMessage(Component.literal(
                                     "[Reroller] Aim at a block first, then click this button."
@@ -128,7 +129,7 @@ public class RerollerConfigScreen {
                                 .action((screen, opt) -> {
                                     cfg.clearLecternPos();
                                     RerollerConfig.save();
-                                    mc.setScreen(create(parent));
+                                    mc.gui.setScreen(create(parent));
                                 })
                                 .build()
                         )

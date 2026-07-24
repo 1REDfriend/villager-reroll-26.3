@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/level/ExplosionDamageCalculator.java
++++ b/net/minecraft/world/level/ExplosionDamageCalculator.java
+@@ -13,7 +_,7 @@
+     ) {
+         return block.isAir() && fluid.isEmpty()
+             ? Optional.empty()
+-            : Optional.of(Math.max(block.getBlock().getExplosionResistance(), fluid.getExplosionResistance()));
++            : Optional.of(Math.max(block.getBlock().getExplosionResistance(block, level, pos, explosion), fluid.getExplosionResistance(level, pos, explosion)));
+     }
+ 
+     public boolean shouldBlockExplode(final Explosion explosion, final BlockGetter level, final BlockPos pos, final BlockState state, final float power) {

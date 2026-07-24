@@ -1,0 +1,22 @@
+--- a/net/minecraft/server/rcon/thread/RconClient.java
++++ b/net/minecraft/server/rcon/thread/RconClient.java
+@@ -123,14 +_,11 @@
+     }
+ 
+     private void sendCmdResponse(final int requestid, String response) throws IOException {
+-        int len = response.length();
+-
+-        do {
+-            int dataLen = 4096 <= len ? 4096 : len;
+-            this.send(requestid, 0, response.substring(0, dataLen));
+-            response = response.substring(dataLen);
+-            len = response.length();
+-        } while (0 != len);
++        // Forge: Actually convert to UTF8 and process bytes accordingly. Why do we do this? UTF8 should be single byte per character
++        byte[] data = response.getBytes(StandardCharsets.UTF_8);
++        for (int x = 0; x < data.length; x += 4096) {
++            this.send(requestid, 0, new String(data, x, Math.min(4096, data.length - x), StandardCharsets.UTF_8));
++        }
+     }
+ 
+     @Override

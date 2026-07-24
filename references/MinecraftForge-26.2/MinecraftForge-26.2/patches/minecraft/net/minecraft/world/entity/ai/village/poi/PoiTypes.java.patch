@@ -1,0 +1,19 @@
+--- a/net/minecraft/world/entity/ai/village/poi/PoiTypes.java
++++ b/net/minecraft/world/entity/ai/village/poi/PoiTypes.java
+@@ -56,7 +_,7 @@
+         .stream()
+         .flatMap(block -> block.getStateDefinition().getPossibleStates().stream())
+         .collect(ImmutableSet.toImmutableSet());
+-    private static final Map<BlockState, Holder<PoiType>> TYPE_BY_STATE = Maps.newHashMap();
++    private static final Map<BlockState, Holder<PoiType>> TYPE_BY_STATE = net.minecraftforge.registries.GameData.PoiTypeCallbacks.getStateToPoi();
+ 
+     private static Set<BlockState> getBlockStates(final Block block) {
+         return ImmutableSet.copyOf(block.getStateDefinition().getPossibleStates());
+@@ -71,7 +_,6 @@
+     ) {
+         PoiType value = new PoiType(matchingStates, maxTickets, validRange);
+         Registry.register(registry, id, value);
+-        registerBlockStates(registry.getOrThrow(id), matchingStates);
+         return value;
+     }
+ 

@@ -1,0 +1,39 @@
+--- a/net/minecraft/data/tags/TagAppender.java
++++ b/net/minecraft/data/tags/TagAppender.java
+@@ -7,7 +_,7 @@
+ import net.minecraft.tags.TagBuilder;
+ import net.minecraft.tags.TagKey;
+ 
+-public interface TagAppender<T> {
++public interface TagAppender<T> extends net.minecraftforge.common.extensions.IForgeTagAppender<T> {
+     TagAppender<T> add(ResourceKey<T> element);
+ 
+     default TagAppender<T> add(final ResourceKey<T>... elements) {
+@@ -31,6 +_,10 @@
+     TagAppender<T> addOptionalTag(TagKey<T> tag);
+ 
+     static <T> TagAppender<T> forBuilder(final TagBuilder builder) {
++        return forBuilder(builder, "unknown");
++    }
++
++    static <T> TagAppender<T> forBuilder(final TagBuilder builder, String source) {
+         return new TagAppender<T>() {
+             @Override
+             public TagAppender<T> add(final ResourceKey<T> element) {
+@@ -54,6 +_,16 @@
+             public TagAppender<T> addOptionalTag(final TagKey<T> tag) {
+                 builder.addOptionalTag(tag.location());
+                 return this;
++            }
++
++            @Override
++            public TagBuilder getInternalBuilder() {
++                return builder;
++            }
++
++            @Override
++            public String getSourceName() {
++                return source;
+             }
+         };
+     }

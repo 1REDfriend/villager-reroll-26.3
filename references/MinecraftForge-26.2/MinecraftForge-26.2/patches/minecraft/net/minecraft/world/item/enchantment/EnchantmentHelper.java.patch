@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/item/enchantment/EnchantmentHelper.java
++++ b/net/minecraft/world/item/enchantment/EnchantmentHelper.java
+@@ -602,7 +_,7 @@
+     public static List<EnchantmentInstance> getAvailableEnchantmentResults(final int value, final ItemStack itemStack, final Stream<Holder<Enchantment>> source) {
+         List<EnchantmentInstance> results = Lists.newArrayList();
+         boolean isBook = itemStack.is(Items.BOOK);
+-        source.filter(enchantment -> enchantment.value().isPrimaryItem(itemStack) || isBook).forEach(holder -> {
++        source.filter(enchantment -> itemStack.canApplyAtEnchantingTable(enchantment) || isBook).forEach(holder -> {
+             Enchantment enchantment = holder.value();
+ 
+             for (int level = enchantment.getMaxLevel(); level >= enchantment.getMinLevel(); level--) {

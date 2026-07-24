@@ -1,0 +1,318 @@
+/*
+ * This file is part of architectury.
+ * Copyright (C) 2020, 2021, 2022 architectury
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
+package dev.architectury.event;
+
+import com.google.common.reflect.AbstractInvocationHandler;
+import dev.architectury.annotations.ForgeEvent;
+import dev.architectury.annotations.ForgeEventCancellable;
+import dev.architectury.injectables.annotations.ExpectPlatform;
+import net.minecraft.world.InteractionResult;
+import org.jetbrains.annotations.ApiStatus;
+
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+public final class EventFactory {
+    private EventFactory() {
+    }
+    
+    public static <T> Event<T> of(Function<List<T>, T> function) {
+        return new EventImpl<>(function);
+    }
+    
+    @SafeVarargs
+    public static <T> Event<T> createLoop(T... typeGetter) {
+        if (typeGetter.length != 0) throw new IllegalStateException("array must be empty!");
+        return createLoop((Class<T>) typeGetter.getClass().getComponentType());
+    }
+    
+    private static <T, R> R invokeMethod(T listener, Method method, Object[] args) throws Throwable {
+        return (R) MethodHandles.lookup().unreflect(method)
+                .bindTo(listener).invokeWithArguments(args);
+    }
+    
+    @SuppressWarnings("UnstableApiUsage")
+    public static <T> Event<T> createLoop(Class<T> clazz) {
+        return of(listeners -> (T) Proxy.newProxyInstance(EventFactory.class.getClassLoader(), new Class[]{clazz}, new AbstractInvocationHandler() {
+            @Override
+            protected Object handleInvocation(Object proxy, Method method, Object[] args) throws Throwable {
+                for (var listener : listeners) {
+                    invokeMethod(listener, method, args);
+                }
+                return null;
+            }
+        }));
+    }
+    
+    @SafeVarargs
+    public static <T> Event<T> createEventResult(T... typeGetter) {
+        if (typeGetter.length != 0) throw new IllegalStateException("array must be empty!");
+        return createEventResult((Class<T>) typeGetter.getClass().getComponentType());
+    }
+    
+    @SuppressWarnings("UnstableApiUsage")
+    public static <T> Event<T> createEventResult(Class<T> clazz) {
+        return of(listeners -> (T) Proxy.newProxyInstance(EventFactory.class.getClassLoader(), new Class[]{clazz}, new AbstractInvocationHandler() {
+            @Override
+            protected Object handleInvocation(Object proxy, Method method, Object[] args) throws Throwable {
+                for (var listener : listeners) {
+                    var result = (EventResult) Objects.requireNonNull(invokeMethod(listener, method, args));
+                    if (result.interruptsFurtherEvaluation()) {
+                        return result;
+                    }
+                }
+                return EventResult.pass();
+            }
+        }));
+    }
+    
+    @SafeVarargs
+    public static <T> Event<T> createCompoundEventResult(T... typeGetter) {
+        if (typeGetter.length != 0) throw new IllegalStateException("array must be empty!");
+        return createCompoundEventResult((Class<T>) typeGetter.getClass().getComponentType());
+    }
+    
+    @SuppressWarnings("UnstableApiUsage")
+    public static <T> Event<T> createCompoundEventResult(Class<T> clazz) {
+        return of(listeners -> (T) Proxy.newProxyInstance(EventFactory.class.getClassLoader(), new Class[]{clazz}, new AbstractInvocationHandler() {
+            @Override
+            protected Object handleInvocation(Object proxy, Method method, Object[] args) throws Throwable {
+                for (var listener : listeners) {
+                    var result = (CompoundEventResult) Objects.requireNonNull(invokeMethod(listener, method, args));
+                    if (result.interruptsFurtherEvaluation()) {
+                        return result;
+                    }
+                }
+                return CompoundEventResult.pass();
+            }
+        }));
+    }
+    
+    /**
+     * @deprecated Prefer {@link #createEventResult(Class)} returning {@link EventResult}. An
+     * {@link EventResult} can now losslessly represent any vanilla {@link InteractionResult} via
+     * {@link EventResult#fromMinecraft(InteractionResult)} and {@link EventResult#asMinecraft()},
+     * giving the event system a single canonical result model. This factory is retained for the
+     * existing events whose listener interfaces expose a raw {@link InteractionResult}.
+     */
+    @Deprecated(forRemoval = true)
+    @SafeVarargs
+    public static <T> Event<T> createInteractionResult(T... typeGetter) {
+        if (typeGetter.length != 0) throw new IllegalStateException("array must be empty!");
+        return createInteractionResult((Class<T>) typeGetter.getClass().getComponentType());
+    }
+
+    /**
+     * @deprecated Prefer {@link #createEventResult(Class)} returning {@link EventResult}, which can
+     * now losslessly represent any vanilla {@link InteractionResult} via
+     * {@link EventResult#fromMinecraft(InteractionResult)} and {@link EventResult#asMinecraft()}.
+     */
+    @Deprecated(forRemoval = true)
+    @SuppressWarnings("UnstableApiUsage")
+    public static <T> Event<T> createInteractionResult(Class<T> clazz) {
+        return of(listeners -> (T) Proxy.newProxyInstance(EventFactory.class.getClassLoader(), new Class[]{clazz}, new AbstractInvocationHandler() {
+            @Override
+            protected Object handleInvocation(Object proxy, Method method, Object[] args) throws Throwable {
+                for (var listener : listeners) {
+                    var result = (InteractionResult) Objects.requireNonNull(invokeMethod(listener, method, args));
+                    if (result != InteractionResult.PASS) {
+                        return result;
+                    }
+                }
+                return InteractionResult.PASS;
+            }
+        }));
+    }
+    
+    @SafeVarargs
+    public static <T> Event<Consumer<T>> createConsumerLoop(T... typeGetter) {
+        if (typeGetter.length != 0) throw new IllegalStateException("array must be empty!");
+        return createConsumerLoop((Class<T>) typeGetter.getClass().getComponentType());
+    }
+    
+    @SuppressWarnings("UnstableApiUsage")
+    public static <T> Event<Consumer<T>> createConsumerLoop(Class<T> clazz) {
+        Event<Consumer<T>> event = of(listeners -> (Consumer<T>) Proxy.newProxyInstance(EventFactory.class.getClassLoader(), new Class[]{Consumer.class}, new AbstractInvocationHandler() {
+            @Override
+            protected Object handleInvocation(Object proxy, Method method, Object[] args) throws Throwable {
+                for (var listener : listeners) {
+                    invokeMethod(listener, method, args);
+                }
+                return null;
+            }
+        }));
+        Class<?> superClass = clazz;
+        do {
+            if (superClass.isAnnotationPresent(ForgeEvent.class)) {
+                return attachToForge(event);
+            }
+            superClass = superClass.getSuperclass();
+        } while (superClass != null);
+        return event;
+    }
+    
+    @SafeVarargs
+    public static <T> Event<EventActor<T>> createEventActorLoop(T... typeGetter) {
+        if (typeGetter.length != 0) throw new IllegalStateException("array must be empty!");
+        return createEventActorLoop((Class<T>) typeGetter.getClass().getComponentType());
+    }
+    
+    @SuppressWarnings("UnstableApiUsage")
+    public static <T> Event<EventActor<T>> createEventActorLoop(Class<T> clazz) {
+        Event<EventActor<T>> event = of(listeners -> (EventActor<T>) Proxy.newProxyInstance(EventFactory.class.getClassLoader(), new Class[]{EventActor.class}, new AbstractInvocationHandler() {
+            @Override
+            protected Object handleInvocation(Object proxy, Method method, Object[] args) throws Throwable {
+                for (var listener : listeners) {
+                    var result = (EventResult) invokeMethod(listener, method, args);
+                    if (result.interruptsFurtherEvaluation()) {
+                        return result;
+                    }
+                }
+                return EventResult.pass();
+            }
+        }));
+        Class<?> superClass = clazz;
+        do {
+            
+            if (superClass.isAnnotationPresent(ForgeEventCancellable.class)) {
+                return attachToForgeEventActorCancellable(event);
+            }
+            superClass = superClass.getSuperclass();
+        } while (superClass != null);
+        superClass = clazz;
+        do {
+            
+            if (superClass.isAnnotationPresent(ForgeEvent.class)) {
+                return attachToForgeEventActor(event);
+            }
+            superClass = superClass.getSuperclass();
+        } while (superClass != null);
+        return event;
+    }
+    
+    @ExpectPlatform
+    @ApiStatus.Internal
+    public static <T> Event<Consumer<T>> attachToForge(Event<Consumer<T>> event) {
+        throw new AssertionError();
+    }
+    
+    @ExpectPlatform
+    @ApiStatus.Internal
+    public static <T> Event<EventActor<T>> attachToForgeEventActor(Event<EventActor<T>> event) {
+        throw new AssertionError();
+    }
+    
+    @ExpectPlatform
+    @ApiStatus.Internal
+    public static <T> Event<EventActor<T>> attachToForgeEventActorCancellable(Event<EventActor<T>> event) {
+        throw new AssertionError();
+    }
+    
+    private static class EventImpl<T> implements Event<T> {
+        // Stable comparator: orders by priority only, leaving listeners that share a priority
+        // in their original (registration) order when applied via a stable sort.
+        private static final Comparator<Listener<?>> BY_PRIORITY = Comparator.comparingInt(it -> it.priority().ordinal());
+
+        private final Function<List<T>, T> function;
+        private T invoker = null;
+        private final ArrayList<Listener<T>> listeners;
+
+        public EventImpl(Function<List<T>, T> function) {
+            this.function = function;
+            this.listeners = new ArrayList<>();
+        }
+
+        @Override
+        public T invoker() {
+            if (invoker == null) {
+                update();
+            }
+            return invoker;
+        }
+
+        @Override
+        public void register(T listener) {
+            register(EventPriority.NORMAL, listener);
+        }
+
+        @Override
+        public void register(EventPriority priority, T listener) {
+            listeners.add(new Listener<>(priority, listener));
+            invoker = null;
+        }
+
+        @Override
+        public void unregister(T listener) {
+            for (int i = 0; i < listeners.size(); i++) {
+                if (Objects.equals(listeners.get(i).listener(), listener)) {
+                    listeners.remove(i);
+                    listeners.trimToSize();
+                    invoker = null;
+                    return;
+                }
+            }
+        }
+
+        @Override
+        public boolean isRegistered(T listener) {
+            for (var entry : listeners) {
+                if (Objects.equals(entry.listener(), listener)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public void clearListeners() {
+            listeners.clear();
+            listeners.trimToSize();
+            invoker = null;
+        }
+
+        public void update() {
+            if (listeners.size() == 1) {
+                invoker = listeners.getFirst().listener();
+            } else {
+                invoker = function.apply(sortedListeners());
+            }
+        }
+
+        private List<T> sortedListeners() {
+            ArrayList<Listener<T>> sorted = new ArrayList<>(listeners);
+            sorted.sort(BY_PRIORITY);
+            List<T> result = new ArrayList<>(sorted.size());
+            for (var entry : sorted) {
+                result.add(entry.listener());
+            }
+            return result;
+        }
+
+        private record Listener<T>(EventPriority priority, T listener) {
+        }
+    }
+}

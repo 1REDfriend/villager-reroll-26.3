@@ -1,0 +1,33 @@
+--- a/net/minecraft/world/level/block/DetectorRailBlock.java
++++ b/net/minecraft/world/level/block/DetectorRailBlock.java
+@@ -39,6 +_,10 @@
+ 
+     public DetectorRailBlock(final BlockBehaviour.Properties properties) {
+         super(true, properties);
++        this.registerDefaultState();
++    }
++
++    protected void registerDefaultState() {
+         this.registerDefaultState(this.stateDefinition.any().setValue(POWERED, false).setValue(SHAPE, RailShape.NORTH_SOUTH).setValue(WATERLOGGED, false));
+     }
+ 
+@@ -154,7 +_,10 @@
+                 return commandBlocks.get(0).getCommandBlock().getSuccessCount();
+             }
+ 
+-            List<AbstractMinecart> entities = this.getInteractingMinecartOfType(level, pos, AbstractMinecart.class, EntitySelector.CONTAINER_ENTITY_SELECTOR);
++            List<AbstractMinecart> carts = this.getInteractingMinecartOfType(level, pos, AbstractMinecart.class, e -> e.isAlive());
++            if (!carts.isEmpty() && carts.get(0).getComparatorLevel() > -1) return carts.get(0).getComparatorLevel();
++            List<AbstractMinecart> entities = carts.stream().filter(EntitySelector.CONTAINER_ENTITY_SELECTOR).toList();
++
+             if (!entities.isEmpty()) {
+                 return AbstractContainerMenu.getRedstoneSignalFromContainer((Container)entities.get(0));
+             }
+@@ -190,6 +_,6 @@
+ 
+     @Override
+     protected void createBlockStateDefinition(final StateDefinition.Builder<Block, BlockState> builder) {
+-        builder.add(SHAPE, POWERED, WATERLOGGED);
++        builder.add(getShapeProperty(), POWERED, WATERLOGGED);
+     }
+ }

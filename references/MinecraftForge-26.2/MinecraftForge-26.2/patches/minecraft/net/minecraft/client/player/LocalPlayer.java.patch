@@ -1,0 +1,87 @@
+--- a/net/minecraft/client/player/LocalPlayer.java
++++ b/net/minecraft/client/player/LocalPlayer.java
+@@ -318,6 +_,7 @@
+         ServerboundPlayerActionPacket.Action action = all
+             ? ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS
+             : ServerboundPlayerActionPacket.Action.DROP_ITEM;
++        if (isUsingItem() && getUsedItemHand() == InteractionHand.MAIN_HAND && (all || getUseItem().getCount() == 1)) stopUsingItem(); // Forge: fix MC-231097 on the clientside
+         ItemStack prediction = this.getInventory().removeFromSelected(all);
+         this.connection.send(new ServerboundPlayerActionPacket(action, BlockPos.ZERO, Direction.DOWN));
+         return !prediction.isEmpty();
+@@ -545,7 +_,10 @@
+ 
+     @Override
+     public void playSound(final SoundEvent sound, final float volume, final float pitch) {
+-        this.level().playLocalSound(this.getX(), this.getY(), this.getZ(), sound, this.getSoundSource(), volume, pitch, false);
++        var holder = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound);
++        var event = net.minecraftforge.event.ForgeEventFactory.onPlaySoundAtEntity(this.level(), this, holder, this.getSoundSource(), volume, pitch);
++        if (event == null || event.getSound() == null) return;
++        this.level().playLocalSound(this.getX(), this.getY(), this.getZ(), event.getSound().get(), event.getSource(), event.getNewVolume(), event.getNewPitch(), false);
+     }
+ 
+     @Override
+@@ -787,6 +_,7 @@
+             && this.canPlayerFitWithinBlocksAndEntitiesWhen(Pose.CROUCHING)
+             && (this.isShiftKeyDown() || !this.isSleeping() && !this.canPlayerFitWithinBlocksAndEntitiesWhen(Pose.STANDING));
+         this.input.tick();
++        net.minecraftforge.client.ForgeHooksClient.onMovementInputUpdate(this, this.input);
+         this.minecraft.getTutorial().onInput(this.input);
+         boolean wasAutoJump = false;
+         if (this.autoJumpTime > 0) {
+@@ -859,8 +_,9 @@
+         }
+ 
+         this.wasFallFlying = this.isFallFlying();
+-        if (this.isInWater() && this.input.keyPresses.shift() && this.isAffectedByFluids()) {
+-            this.goDownInWater();
++        var fluidType = this.getMaxHeightFluidType();
++        if ((this.isInWater() || (!fluidType.isAir() && this.canSwimInFluidType(fluidType))) && this.input.keyPresses.shift() && this.isAffectedByFluids()) {
++           this.sinkInFluid(this.isInWater() ? net.minecraftforge.common.ForgeMod.WATER_TYPE.get() : fluidType);
+         }
+ 
+         if (this.isEyeInFluid(FluidTags.WATER)) {
+@@ -928,7 +_,7 @@
+     }
+ 
+     private boolean shouldStopSwimSprinting() {
+-        return !this.isSprintingPossible(true) || !this.isInWater() || !this.input.hasForwardImpulse() && !this.onGround() && !this.input.keyPresses.shift();
++        return !this.isSprintingPossible(true) || !this.isInWaterOrSwimmable() || !this.input.hasForwardImpulse() && !this.onGround() && !this.input.keyPresses.shift();
+     }
+ 
+     public Portal.Transition getActivePortalLocalTransition() {
+@@ -973,6 +_,8 @@
+     @Override
+     public void rideTick() {
+         super.rideTick();
++        if (this.wantsToStopRiding() && this.isPassenger())
++            this.input.keyPresses = this.input.keyPresses.jump(false);
+         this.handsBusy = false;
+         if (this.getControlledVehicle() instanceof AbstractBoat boat) {
+             boat.setInput(this.input.keyPresses.left(), this.input.keyPresses.right(), this.input.keyPresses.forward(), this.input.keyPresses.backward());
+@@ -1147,7 +_,7 @@
+             && this.isSprintingPossible(this.getAbilities().flying)
+             && !this.isSlowDueToUsingItem()
+             && (!this.isFallFlying() || this.isUnderWater())
+-            && (!this.isMovingSlowly() || this.isUnderWater());
++            && (!this.isMovingSlowly() || this.isUnderWater() || this.canStartSwimming());
+     }
+ 
+     private boolean vehicleCanSprint(final Entity vehicle) {
+@@ -1222,6 +_,17 @@
+     @Override
+     public float getVisualRotationYInDegrees() {
+         return this.getYRot();
++    }
++
++    public void updateSyncFields(LocalPlayer old) {
++        this.xLast = old.xLast;
++        this.yLast = old.yLast;
++        this.zLast = old.zLast;
++        this.yRotLast = old.yRotLast;
++        this.xRotLast = old.xRotLast;
++        this.lastOnGround = old.lastOnGround;
++        this.wasSprinting = old.wasSprinting;
++        this.positionReminder = old.positionReminder;
+     }
+ 
+     @Override

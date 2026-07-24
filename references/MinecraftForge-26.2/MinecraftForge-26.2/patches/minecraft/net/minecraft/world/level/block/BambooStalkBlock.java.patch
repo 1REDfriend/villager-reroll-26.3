@@ -1,0 +1,38 @@
+--- a/net/minecraft/world/level/block/BambooStalkBlock.java
++++ b/net/minecraft/world/level/block/BambooStalkBlock.java
+@@ -24,7 +_,7 @@
+ import net.minecraft.world.phys.shapes.VoxelShape;
+ import org.jspecify.annotations.Nullable;
+ 
+-public class BambooStalkBlock extends Block implements BonemealableBlock {
++public class BambooStalkBlock extends Block implements BonemealableBlock, net.minecraftforge.common.IPlantable {
+     public static final MapCodec<BambooStalkBlock> CODEC = simpleCodec(BambooStalkBlock::new);
+     private static final VoxelShape SHAPE_SMALL = Block.column(6.0, 0.0, 16.0);
+     private static final VoxelShape SHAPE_LARGE = Block.column(10.0, 0.0, 16.0);
+@@ -119,10 +_,12 @@
+     @Override
+     protected void randomTick(final BlockState state, final ServerLevel level, final BlockPos pos, final RandomSource random) {
+         if (state.getValue(STAGE) == 0) {
+-            if (random.nextInt(3) == 0 && level.isEmptyBlock(pos.above()) && level.getRawBrightness(pos.above(), 0) >= 9) {
++            boolean vanilla = random.nextInt(3) == 0;
++            if (level.isEmptyBlock(pos.above()) && level.getRawBrightness(pos.above(), 0) >= 9) {
+                 int height = this.getHeightBelowUpToMax(level, pos) + 1;
+-                if (height < 16) {
++                if (height < 16 && net.minecraftforge.common.ForgeHooks.onCropsGrowPre(level, pos, state, vanilla)) {
+                     this.growBamboo(state, level, pos, random, height);
++                    net.minecraftforge.common.ForgeHooks.onCropsGrowPost(level, pos, state);
+                 }
+             }
+         }
+@@ -230,5 +_,11 @@
+         }
+ 
+         return height;
++    }
++
++    @Override
++    public BlockState getPlant(BlockGetter world, BlockPos pos) {
++        BlockState state = world.getBlockState(pos);
++        return state.getBlock() == this ? state : defaultBlockState();
+     }
+ }

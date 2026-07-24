@@ -1,0 +1,121 @@
+--- a/net/minecraft/world/entity/item/ItemEntity.java
++++ b/net/minecraft/world/entity/item/ItemEntity.java
+@@ -52,6 +_,10 @@
+     private @Nullable EntityReference<Entity> thrower;
+     private @Nullable UUID target;
+     public final float bobOffs = this.random.nextFloat() * (float) Math.PI * 2.0F;
++    /**
++     * The maximum age of this EntityItem.  The item is expired once this is reached.
++     */
++    public int lifespan = ItemEntity.LIFETIME;
+ 
+     public ItemEntity(final EntityType<? extends ItemEntity> type, final Level level) {
+         super(type, level);
+@@ -79,6 +_,7 @@
+         this.setPos(x, y, z);
+         this.setItem(itemStack);
+         this.setDeltaMovement(deltaX, deltaY, deltaZ);
++        this.lifespan = (itemStack.getItem() == null ? ItemEntity.LIFETIME : itemStack.getEntityLifespan(level));
+     }
+ 
+     @Override
+@@ -116,6 +_,7 @@
+ 
+     @Override
+     public void tick() {
++        if (getItem().onEntityItemUpdate(this)) return;
+         if (this.getItem().isEmpty()) {
+             this.discard();
+         } else {
+@@ -128,6 +_,10 @@
+             this.yo = this.getY();
+             this.zo = this.getZ();
+             Vec3 oldMovement = this.getDeltaMovement();
++            var fluidType = this.getMaxHeightFluidType();
++            if (!fluidType.isAir() && !fluidType.isVanilla() && this.getFluidTypeHeight(fluidType) > 0.1F) {
++                fluidType.setItemMovement(this);
++            } else
+             if (this.isInWater() && this.getFluidHeight(FluidTags.WATER) > 0.1F) {
+                 this.setUnderwaterMovement();
+             } else if (this.isInLava() && this.getFluidHeight(FluidTags.LAVA) > 0.1F) {
+@@ -153,7 +_,8 @@
+                 float airDrag = this.getAirDrag();
+                 float groundFriction = airDrag;
+                 if (this.onGround()) {
+-                    groundFriction *= this.level().getBlockState(this.getBlockPosBelowThatAffectsMyMovement()).getBlock().getFriction();
++                    BlockPos groundPos = getBlockPosBelowThatAffectsMyMovement();
++                    groundFriction *= this.level().getBlockState(groundPos).getFriction(level(), groundPos, this) * 0.98F;
+                 }
+ 
+                 this.setDeltaMovement(this.getDeltaMovement().multiply(groundFriction, airDrag, groundFriction));
+@@ -185,7 +_,16 @@
+                 }
+             }
+ 
+-            if (!this.level().isClientSide() && this.age >= 6000) {
++            ItemStack item = this.getItem();
++            if (!this.level().isClientSide() && this.age >= lifespan) {
++                int hook = net.minecraftforge.event.ForgeEventFactory.onItemExpire(this, item);
++                if (hook < 0) {
++                   this.discard();
++                } else {
++                   this.lifespan += hook;
++                }
++            }
++            if (item.isEmpty() && !this.isRemoved()) {
+                 this.discard();
+             }
+         }
+@@ -300,7 +_,7 @@
+         this.health = (int)(this.health - damage);
+         this.gameEvent(GameEvent.ENTITY_DAMAGE, source.getEntity());
+         if (this.health <= 0) {
+-            this.getItem().onDestroyed(this);
++            this.getItem().onDestroyed(this, source);
+             this.discard();
+         }
+ 
+@@ -317,6 +_,7 @@
+         output.putShort("Health", (short)this.health);
+         output.putShort("Age", (short)this.age);
+         output.putShort("PickupDelay", (short)this.pickupDelay);
++        output.putInt("Lifespan", this.lifespan);
+         EntityReference.store(this.thrower, output, "Thrower");
+         output.storeNullable("Owner", UUIDUtil.CODEC, this.target);
+         if (!this.getItem().isEmpty()) {
+@@ -329,6 +_,7 @@
+         this.health = input.getShortOr("Health", (short)5);
+         this.age = input.getShortOr("Age", (short)0);
+         this.pickupDelay = input.getShortOr("PickupDelay", (short)0);
++        this.lifespan = input.getIntOr("Lifespan", this.lifespan);
+         this.target = input.read("Owner", UUIDUtil.CODEC).orElse(null);
+         this.thrower = EntityReference.read(input, "Thrower");
+         this.setItem(input.read("Item", ItemStack.CODEC).orElse(ItemStack.EMPTY));
+@@ -340,10 +_,17 @@
+     @Override
+     public void playerTouch(final Player player) {
+         if (!this.level().isClientSide()) {
++            if (this.pickupDelay > 0) return;
+             ItemStack itemStack = this.getItem();
+             Item item = itemStack.getItem();
+             int orgCount = itemStack.getCount();
+-            if (this.pickupDelay == 0 && (this.target == null || this.target.equals(player.getUUID())) && player.getInventory().add(itemStack)) {
++            int hook = net.minecraftforge.event.ForgeEventFactory.onItemPickup(this, player);
++            if (hook < 0) return;
++            ItemStack copy = itemStack.copy();
++            if (this.pickupDelay == 0 && (this.target == null || this.target.equals(player.getUUID())) && (hook == 1 || orgCount <= 0 || player.getInventory().add(itemStack))) {
++                orgCount = copy.getCount() - itemStack.getCount();
++                copy.setCount(orgCount);
++                net.minecraftforge.event.ForgeEventFactory.firePlayerItemPickupEvent(player, this, copy);
+                 player.take(this, orgCount);
+                 if (itemStack.isEmpty()) {
+                     this.discard();
+@@ -427,7 +_,7 @@
+ 
+     public void makeFakeItem() {
+         this.setNeverPickUp();
+-        this.age = 5999;
++        this.age = getItem().getEntityLifespan(this.level()) - 1;
+     }
+ 
+     public static float getSpin(final float ageInTicks, final float bobOffset) {

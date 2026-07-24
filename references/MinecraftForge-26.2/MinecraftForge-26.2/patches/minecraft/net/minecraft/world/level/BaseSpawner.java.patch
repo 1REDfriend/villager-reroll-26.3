@@ -1,0 +1,38 @@
+--- a/net/minecraft/world/level/BaseSpawner.java
++++ b/net/minecraft/world/level/BaseSpawner.java
+@@ -152,15 +_,16 @@
+ 
+                             entity.snapTo(entity.getX(), entity.getY(), entity.getZ(), random.nextFloat() * 360.0F, 0.0F);
+                             if (entity instanceof Mob mob) {
+-                                if (nextSpawnData.getCustomSpawnRules().isEmpty() && !mob.checkSpawnRules(level, EntitySpawnReason.SPAWNER)
+-                                    || !mob.checkSpawnObstruction(level)) {
++                                if (!net.minecraftforge.event.ForgeEventFactory.checkSpawnPositionSpawner(mob, level, EntitySpawnReason.SPAWNER, nextSpawnData, this)) {
+                                     continue;
+                                 }
+ 
+                                 boolean hasNoConfiguration = nextSpawnData.getEntityToSpawn().size() == 1
+                                     && nextSpawnData.getEntityToSpawn().getString("id").isPresent();
+-                                if (hasNoConfiguration) {
+-                                    ((Mob)entity).finalizeSpawn(level, level.getCurrentDifficultyAt(entity.blockPosition()), EntitySpawnReason.SPAWNER, null);
++                                // Forge: Patch in FinalizeSpawn for spawners so it may be fired unconditionally, instead of only when vanilla normally would trigger it.
++                                var event = net.minecraftforge.event.ForgeEventFactory.onFinalizeSpawnSpawner(mob, level, level.getCurrentDifficultyAt(entity.blockPosition()), null, input, this);
++                                if (event != null && hasNoConfiguration) {
++                                    mob.finalizeSpawn(level, event.getDifficulty(), EntitySpawnReason.SPAWNER, null);
+                                 }
+ 
+                                 nextSpawnData.getEquipment().ifPresent(mob::equip);
+@@ -279,5 +_,14 @@
+ 
+     public double getOSpin() {
+         return this.oSpin;
++    }
++
++    @Nullable
++    public Entity getSpawnerEntity() {
++       return null;
++    }
++
++    public net.minecraft.world.level.block.entity.@Nullable BlockEntity getSpawnerBlockEntity() {
++        return null;
+     }
+ }

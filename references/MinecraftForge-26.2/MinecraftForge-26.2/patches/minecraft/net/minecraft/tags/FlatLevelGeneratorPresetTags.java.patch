@@ -1,0 +1,15 @@
+--- a/net/minecraft/tags/FlatLevelGeneratorPresetTags.java
++++ b/net/minecraft/tags/FlatLevelGeneratorPresetTags.java
+@@ -13,4 +_,12 @@
+     private static TagKey<FlatLevelGeneratorPreset> create(final String name) {
+         return TagKey.create(Registries.FLAT_LEVEL_GENERATOR_PRESET, Identifier.withDefaultNamespace(name));
+     }
++
++    public static TagKey<FlatLevelGeneratorPreset> create(String namepsace, String path) {
++        return create(Identifier.fromNamespaceAndPath(namepsace, path));
++    }
++
++    public static TagKey<FlatLevelGeneratorPreset> create(Identifier name) {
++        return TagKey.create(Registries.FLAT_LEVEL_GENERATOR_PRESET, name);
++    }
+ }

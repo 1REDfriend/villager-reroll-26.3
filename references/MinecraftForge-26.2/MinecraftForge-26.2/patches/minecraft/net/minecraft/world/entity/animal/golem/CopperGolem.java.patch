@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/entity/animal/golem/CopperGolem.java
++++ b/net/minecraft/world/entity/animal/golem/CopperGolem.java
+@@ -214,7 +_,7 @@
+         }
+ 
+         Level level = this.level();
+-        if (itemStack.is(Items.SHEARS) && this.readyForShearing()) {
++        if (itemStack.canPerformAction(net.minecraftforge.common.ToolActions.SHEARS_HARVEST) && this.readyForShearing()) {
+             if (level instanceof ServerLevel serverLevel) {
+                 this.shear(serverLevel, SoundSource.PLAYERS, itemStack);
+                 this.gameEvent(GameEvent.SHEAR, player);

@@ -1,0 +1,43 @@
+--- a/net/minecraft/client/particle/ParticleResources.java
++++ b/net/minecraft/client/particle/ParticleResources.java
+@@ -45,6 +_,7 @@
+     private static final FileToIdConverter PARTICLE_LISTER = FileToIdConverter.json("particles");
+     private final Map<Identifier, ParticleResources.MutableSpriteSet> spriteSets = Maps.newHashMap();
+     private final Int2ObjectMap<ParticleProvider<?>> providers = new Int2ObjectOpenHashMap<>();
++    private final Map<Identifier, ParticleProvider<?>> providersByName = new java.util.HashMap<>();
+     private @Nullable Runnable onReload;
+ 
+     public ParticleResources() {
+@@ -183,14 +_,17 @@
+         this.register(ParticleTypes.SULFUR_CUBE_GOO, BreakingItemParticle.SulfurCubeProvider::new);
+     }
+ 
++    /** @deprecated Register via {@link net.minecraftforge.client.event.RegisterParticleProvidersEvent} */
+     public <T extends ParticleOptions> void register(final ParticleType<T> type, final ParticleProvider<T> provider) {
+         this.providers.put(BuiltInRegistries.PARTICLE_TYPE.getId(type), provider);
++        this.providersByName.put(BuiltInRegistries.PARTICLE_TYPE.getKey(type), provider);
+     }
+ 
++    /** @deprecated Register via {@link net.minecraftforge.client.event.RegisterParticleProvidersEvent} */
+     public <T extends ParticleOptions> void register(final ParticleType<T> type, final ParticleResources.SpriteParticleRegistration<T> provider) {
+         ParticleResources.MutableSpriteSet spriteSet = new ParticleResources.MutableSpriteSet();
+         this.spriteSets.put(BuiltInRegistries.PARTICLE_TYPE.getKey(type), spriteSet);
+-        this.providers.put(BuiltInRegistries.PARTICLE_TYPE.getId(type), provider.create(spriteSet));
++        register(type, provider.create(spriteSet));
+     }
+ 
+     @Override
+@@ -281,8 +_,13 @@
+         }
+     }
+ 
++    /** @deprecated Use getProvider(ProviderType) as these ids may not be in sync with servers */
+     public Int2ObjectMap<ParticleProvider<?>> getProviders() {
+         return this.providers;
++    }
++
++    public <T extends ParticleOptions> ParticleProvider<T> getProvider(ParticleType<T> type) {
++        return (ParticleProvider<T>)this.providersByName.get(BuiltInRegistries.PARTICLE_TYPE.getKey(type));
+     }
+ 
+     @OnlyIn(Dist.CLIENT)

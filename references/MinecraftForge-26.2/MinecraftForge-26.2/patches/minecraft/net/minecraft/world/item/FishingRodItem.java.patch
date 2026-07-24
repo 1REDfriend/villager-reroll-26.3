@@ -1,0 +1,25 @@
+--- a/net/minecraft/world/item/FishingRodItem.java
++++ b/net/minecraft/world/item/FishingRodItem.java
+@@ -24,7 +_,11 @@
+         if (player.fishing != null) {
+             if (!level.isClientSide()) {
+                 int dmg = player.fishing.retrieve(itemStack);
++                ItemStack original = itemStack.copy();
+                 itemStack.hurtAndBreak(dmg, player, hand.asEquipmentSlot());
++                if (itemStack.isEmpty()) {
++                    net.minecraftforge.event.ForgeEventFactory.onPlayerDestroyItem(player, original, hand.asEquipmentSlot());
++                }
+             }
+ 
+             level.playSound(
+@@ -60,5 +_,10 @@
+         }
+ 
+         return InteractionResult.SUCCESS;
++    }
++
++    @Override
++    public boolean canPerformAction(ItemStack stack, net.minecraftforge.common.ToolAction toolAction) {
++        return net.minecraftforge.common.ToolActions.DEFAULT_FISHING_ROD_ACTIONS.contains(toolAction);
+     }
+ }

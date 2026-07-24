@@ -1,0 +1,11 @@
+--- a/net/minecraft/core/DefaultedMappedRegistry.java
++++ b/net/minecraft/core/DefaultedMappedRegistry.java
+@@ -43,7 +_,7 @@
+     @Override
+     public T getValue(final @Nullable Identifier key) {
+         T t = super.getValue(key);
+-        return t == null ? this.defaultValue.value() : t;
++        return t == null && this.defaultValue != null ? this.defaultValue.value() : t; // Add null check as it errors out in validation
+     }
+ 
+     @Override

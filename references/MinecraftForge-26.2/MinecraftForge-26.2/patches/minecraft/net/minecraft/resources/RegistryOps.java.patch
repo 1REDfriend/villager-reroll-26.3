@@ -1,0 +1,25 @@
+--- a/net/minecraft/resources/RegistryOps.java
++++ b/net/minecraft/resources/RegistryOps.java
+@@ -76,6 +_,22 @@
+             .forGetter(e -> null);
+     }
+ 
++    public static <E> com.mojang.serialization.MapCodec<HolderLookup.RegistryLookup<E>> retrieveRegistryLookup(final ResourceKey<? extends Registry<? extends E>> resourceKey) {
++       return ExtraCodecs.retrieveContext(ops -> {
++           if (!(ops instanceof RegistryOps<?> registryOps)) {
++              return DataResult.error(() -> "Not a registry ops");
++           }
++
++           return registryOps.lookupProvider.lookup(resourceKey).map(registryInfo -> {
++               if (!(registryInfo.owner() instanceof HolderLookup.RegistryLookup<E> registryLookup)) {
++                   return DataResult.<HolderLookup.RegistryLookup<E>>error(() -> "Found holder getter but was not a registry lookup for " + resourceKey);
++               }
++
++               return DataResult.success(registryLookup, registryInfo.elementsLifecycle());
++           }).orElseGet(() -> DataResult.error(() -> "Unknown registry: " + resourceKey));
++       });
++    }
++
+     public static <E, O> RecordCodecBuilder<O, Holder.Reference<E>> retrieveElement(final ResourceKey<E> key) {
+         ResourceKey<? extends Registry<E>> registryKey = ResourceKey.createRegistryKey(key.registry());
+         return ExtraCodecs.retrieveContext(

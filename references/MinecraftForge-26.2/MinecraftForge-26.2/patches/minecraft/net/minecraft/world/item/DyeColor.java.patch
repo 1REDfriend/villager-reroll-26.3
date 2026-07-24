@@ -1,0 +1,48 @@
+--- a/net/minecraft/world/item/DyeColor.java
++++ b/net/minecraft/world/item/DyeColor.java
+@@ -60,6 +_,8 @@
+     private final int textureDiffuseColor;
+     private final int fireworkColor;
+     private final int textColor;
++    private final net.minecraft.tags.TagKey<Item> dyesTag;
++    private final net.minecraft.tags.TagKey<Item> dyedTag;
+ 
+     DyeColor(
+         final int id,
+@@ -77,6 +_,8 @@
+         this.textColor = ARGB.opaque(textColor);
+         this.textureDiffuseColor = ARGB.opaque(textureDiffuseColor);
+         this.fireworkColor = fireworkColor;
++        this.dyesTag = net.minecraft.tags.ItemTags.create("c", "dyes/" + name);
++        this.dyedTag = net.minecraft.tags.ItemTags.create("c", "dyed/" + name);
+     }
+ 
+     public int getId() {
+@@ -129,6 +_,27 @@
+     @Override
+     public String getSerializedName() {
+         return this.name;
++    }
++
++    /**
++     * Gets the tag key representing the set of items which provide this dye colour.
++     * @return A {@link net.minecraft.tags.TagKey<Item>} representing the set of items which provide this dye colour.
++     */
++    public net.minecraft.tags.TagKey<Item> getTag() {
++        return dyesTag;
++    }
++
++    /**
++     * Gets the tag key representing the set of items which are dyed with this colour.
++     * @return A {@link net.minecraft.tags.TagKey<Item>} representing the set of items which are dyed with this colour.
++     */
++    public net.minecraft.tags.TagKey<Item> getDyedTag() {
++        return dyedTag;
++    }
++
++    @Nullable
++    public static DyeColor getColor(ItemStack stack) {
++        return net.minecraftforge.common.ForgeHooks.getDyeColorFromItemStack(stack);
+     }
+ 
+     public static DyeColor getMixedColor(final ServerLevel level, final DyeColor dyeColor1, final DyeColor dyeColor2) {

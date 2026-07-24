@@ -1,0 +1,114 @@
+--- a/net/minecraft/core/MappedRegistry.java
++++ b/net/minecraft/core/MappedRegistry.java
+@@ -31,6 +_,8 @@
+ import org.jspecify.annotations.Nullable;
+ 
+ public class MappedRegistry<T> implements WritableRegistry<T> {
++    private static final org.apache.logging.log4j.Logger LOGGER = org.apache.logging.log4j.LogManager.getLogger();
++    private static final org.apache.logging.log4j.Marker MARKER = net.minecraftforge.registries.ForgeRegistry.REGISTRIES;
+     private final ResourceKey<? extends Registry<T>> key;
+     private final ObjectList<Holder.Reference<T>> byId = new ObjectArrayList<>(256);
+     private final Reference2IntMap<T> toId = Util.make(new Reference2IntOpenHashMap<>(), t -> t.defaultReturnValue(-1));
+@@ -86,6 +_,7 @@
+ 
+     @Override
+     public Holder.Reference<T> register(final ResourceKey<T> key, final T value, final RegistrationInfo registrationInfo) {
++        markKnown();
+         this.validateWrite(key);
+         Objects.requireNonNull(key);
+         Objects.requireNonNull(value);
+@@ -107,6 +_,8 @@
+             holder.bindKey(key);
+         } else {
+             holder = this.byKey.computeIfAbsent(key, k -> Holder.Reference.createStandAlone(this, (ResourceKey<T>)k));
++            // Forge: Bind the value immediately so it can be queried while the registry is not frozen
++            holder.bindValue(value);
+         }
+ 
+         this.byKey.put(key, holder);
+@@ -278,7 +_,6 @@
+         }
+ 
+         this.frozen = true;
+-        this.byValue.forEach((value, holder) -> holder.bindValue((T)value));
+         List<Identifier> unboundEntries = this.byKey
+             .entrySet()
+             .stream()
+@@ -295,7 +_,8 @@
+                 throw new IllegalStateException("Some intrusive holders were not registered: " + this.unregisteredIntrusiveHolders.values());
+             }
+ 
+-            this.unregisteredIntrusiveHolders = null;
++            // Forge: We freeze/unfreeze vanilla registries more than once, so we need to keep the unregistered intrusive holders map around.
++            //this.unregisteredIntrusiveHolders = null;
+         }
+ 
+         if (this.allTags.isBound()) {
+@@ -310,7 +_,8 @@
+             .sorted()
+             .toList();
+         if (!unboundTags.isEmpty()) {
+-            throw new IllegalStateException("Unbound tags in registry " + this.key() + ": " + unboundTags);
++            LOGGER.debug(MARKER, "Unbound tags in registry " + this.key() + ": " + unboundTags);
++            bindAllUnboundTagsToEmpty();
+         }
+ 
+         this.componentLookup = new DataComponentLookup<>(this.byId);
+@@ -319,6 +_,13 @@
+         return this;
+     }
+ 
++    private void bindAllUnboundTagsToEmpty() {
++        for (var tag : this.frozenTags.values()) {
++            if (!tag.isBound())
++                tag.bind(List.of());
++        }
++    }
++
+     @Override
+     public Holder.Reference<T> createIntrusiveHolder(final T value) {
+         if (this.unregisteredIntrusiveHolders == null) {
+@@ -393,6 +_,31 @@
+         };
+     }
+ 
++    public boolean isIntrusive() {
++        return this.unregisteredIntrusiveHolders != null;
++    }
++
++    private static final Set<Identifier> KNOWN = new java.util.LinkedHashSet<>();
++    public static Set<Identifier> getKnownRegistries() {
++        return java.util.Collections.unmodifiableSet(KNOWN);
++    }
++
++    protected final void markKnown() {
++        // Some vanilla registries rely on others in some objects
++        // So we have to have a last-in ordering. Simplest way is to just remove and re-add our selves.
++        // A copy of this map is then captured after vanilla bootstraping to freeze it hopefully before Modder's change the order.
++        // https://github.com/MinecraftForge/MinecraftForge/issues/10179
++        KNOWN.remove(key().identifier());
++        KNOWN.add(key().identifier());
++    }
++
++    /** @deprecated Forge: For internal use only. Use the Register events when registering values. */
++    @Deprecated
++    public void unfreeze() {
++        this.frozen = false;
++        this.allTags = MappedRegistry.TagSet.unbound();
++    }
++
+     @Override
+     public Registry.PendingTags<T> prepareTagReload(final TagLoader.LoadResult<T> tags) {
+         if (!this.frozen) {
+@@ -441,6 +_,11 @@
+             @Override
+             public HolderLookup.RegistryLookup<T> lookup() {
+                 return patchedHolder;
++            }
++
++            @Override
++            public List<Holder<T>> getPending(TagKey<T> key) {
++                return pendingContents.getOrDefault(key, List.of());
+             }
+ 
+             @Override

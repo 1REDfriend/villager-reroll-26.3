@@ -1,0 +1,15 @@
+--- a/net/minecraft/world/level/block/SweetBerryBushBlock.java
++++ b/net/minecraft/world/level/block/SweetBerryBushBlock.java
+@@ -71,10 +_,11 @@
+     @Override
+     protected void randomTick(final BlockState state, final ServerLevel level, final BlockPos pos, final RandomSource random) {
+         int age = state.getValue(AGE);
+-        if (age < 3 && random.nextInt(5) == 0 && level.getRawBrightness(pos.above(), 0) >= 9) {
++        if (age < 3 && level.getRawBrightness(pos.above(), 0) >= 9 && net.minecraftforge.common.ForgeHooks.onCropsGrowPre(level, pos, state, random.nextInt(5) == 0)) {
+             BlockState newState = state.setValue(AGE, age + 1);
+             level.setBlock(pos, newState, 2);
+             level.gameEvent(GameEvent.BLOCK_CHANGE, pos, GameEvent.Context.of(newState));
++            net.minecraftforge.common.ForgeHooks.onCropsGrowPost(level, pos, state);
+         }
+     }
+ 

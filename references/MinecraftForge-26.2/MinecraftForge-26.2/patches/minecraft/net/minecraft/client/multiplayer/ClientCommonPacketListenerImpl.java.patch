@@ -1,0 +1,10 @@
+--- a/net/minecraft/client/multiplayer/ClientCommonPacketListenerImpl.java
++++ b/net/minecraft/client/multiplayer/ClientCommonPacketListenerImpl.java
+@@ -157,6 +_,7 @@
+ 
+     @Override
+     public void handleCustomPayload(final ClientboundCustomPayloadPacket packet) {
++        if (net.minecraftforge.common.ForgeHooks.onCustomPayload(packet.payload(), this.connection)) return;
+         CustomPacketPayload payload = packet.payload();
+         if (!(payload instanceof DiscardedPayload)) {
+             PacketUtils.ensureRunningOnSameThread(packet, this, this.minecraft.packetProcessor());

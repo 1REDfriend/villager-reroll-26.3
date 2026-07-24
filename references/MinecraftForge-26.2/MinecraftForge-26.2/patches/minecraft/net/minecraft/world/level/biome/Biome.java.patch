@@ -1,0 +1,87 @@
+--- a/net/minecraft/world/level/biome/Biome.java
++++ b/net/minecraft/world/level/biome/Biome.java
+@@ -35,9 +_,9 @@
+ public final class Biome {
+     public static final Codec<Biome> DIRECT_CODEC = RecordCodecBuilder.create(
+         i -> i.group(
+-                Biome.ClimateSettings.CODEC.forGetter(b -> b.climateSettings),
++                Biome.ClimateSettings.CODEC.forGetter(b -> b.modifiableBiomeInfo().getOriginalBiomeInfo().climateSettings()), // FORGE: Patch codec to ignore field redirect coremods.
+                 EnvironmentAttributeMap.CODEC_ONLY_POSITIONAL.optionalFieldOf("attributes", EnvironmentAttributeMap.EMPTY).forGetter(b -> b.attributes),
+-                BiomeSpecialEffects.CODEC.fieldOf("effects").forGetter(b -> b.specialEffects),
++                BiomeSpecialEffects.CODEC.fieldOf("effects").forGetter(b -> b.modifiableBiomeInfo().getOriginalBiomeInfo().effects()), // FORGE: Patch codec to ignore field redirect coremods.
+                 BiomeGenerationSettings.CODEC.forGetter(b -> b.generationSettings),
+                 MobSpawnSettings.CODEC.forGetter(b -> b.mobSettings)
+             )
+@@ -65,8 +_,10 @@
+     @Deprecated(forRemoval = true)
+     public static final PerlinSimplexNoise BIOME_INFO_NOISE = new PerlinSimplexNoise(new WorldgenRandom(new LegacyRandomSource(2345L)), ImmutableList.of(0));
+     private static final int TEMPERATURE_CACHE_SIZE = 1024;
++    /** @deprecated Redirected to {@link #getModifiedClimateSettings()} by field_to_method.js */
+     private final Biome.ClimateSettings climateSettings;
+     private final BiomeGenerationSettings generationSettings;
++    /** @deprecated Redirected to {@link #getModifiedSpecialEffects()} by field_to_method.js */
+     private final MobSpawnSettings mobSettings;
+     private final EnvironmentAttributeMap attributes;
+     private final BiomeSpecialEffects specialEffects;
+@@ -79,6 +_,7 @@
+         map.defaultReturnValue(Float.NaN);
+         return map;
+     });
++    private final net.minecraftforge.common.world.ModifiableBiomeInfo modifiableBiomeInfo;
+ 
+     private Biome(
+         final Biome.ClimateSettings climateSettings,
+@@ -92,10 +_,11 @@
+         this.mobSettings = mobSettings;
+         this.attributes = attributes;
+         this.specialEffects = specialEffects;
++        this.modifiableBiomeInfo = new net.minecraftforge.common.world.ModifiableBiomeInfo(new net.minecraftforge.common.world.ModifiableBiomeInfo.BiomeInfo(climateSettings, specialEffects, generationSettings, mobSettings)); // FORGE: cache original biome info on construction so we can bypass our field read coremods where necessary
+     }
+ 
+     public MobSpawnSettings getMobSettings() {
+-        return this.mobSettings;
++        return this.modifiableBiomeInfo().get().mobSpawnSettings();
+     }
+ 
+     public boolean hasPrecipitation() {
+@@ -197,7 +_,7 @@
+     }
+ 
+     public BiomeGenerationSettings getGenerationSettings() {
+-        return this.generationSettings;
++        return this.modifiableBiomeInfo().get().generationSettings();
+     }
+ 
+     public int getGrassColor(final double x, final double z) {
+@@ -250,6 +_,31 @@
+ 
+     public int getWaterColor() {
+         return this.specialEffects.waterColor();
++    }
++
++    /**
++     * {@return Cache of original biome data and biome data modified by biome modifiers}
++     * Modified biome data is set by server after datapacks and serverconfigs load.
++     * Climate and effects field reads are coremodded to redirect to this.
++     **/
++    public net.minecraftforge.common.world.ModifiableBiomeInfo modifiableBiomeInfo() {
++        return this.modifiableBiomeInfo;
++    }
++
++    /**
++     * {@return The biome's climate settings, with modifications if called after modifiers are applied in server init.}
++     * Note: This method is called by our field_to_method coremod. Which redirects {@link #climateSettings} to this method at load time.
++     */
++    public ClimateSettings getModifiedClimateSettings() {
++        return this.modifiableBiomeInfo().get().climateSettings();
++    }
++
++    /**
++     * {@return The biome's client effects, with modifications if called after modifiers are applied in server init.}
++     * Note: This methods is called by our field_to_method coremod. Which redirects {@link #specialEffects} to this method at load time.
++     */
++    public BiomeSpecialEffects getModifiedSpecialEffects() {
++        return this.modifiableBiomeInfo().get().effects();
+     }
+ 
+     public static class BiomeBuilder {

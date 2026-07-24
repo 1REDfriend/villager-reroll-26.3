@@ -1,0 +1,11 @@
+--- a/net/minecraft/server/dedicated/ServerWatchdog.java
++++ b/net/minecraft/server/dedicated/ServerWatchdog.java
+@@ -80,7 +_,7 @@
+         ThreadInfo[] threadInfos = Util.dumpThreadInfo();
+         Arrays.sort(threadInfos, THREAD_INFO_COMPARATOR);
+         StringBuilder builder = new StringBuilder();
+-        Error exception = new Error("Watchdog (" + message + ")");
++        Error exception = new Error("Watchdog (" + message + ") detected that a single server tick took too long"); // Forge: don't just make a crash report with a seemingly-inexplicable Error
+ 
+         for (ThreadInfo threadInfo : threadInfos) {
+             if (threadInfo.getThreadId() == mainThreadId) {

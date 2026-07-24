@@ -1,0 +1,22 @@
+plugins {
+	id 'dev.architectury.loom'
+}
+
+repositories {
+	maven {
+		name = "ParchmentMC"
+		url = "https://maven.parchmentmc.net/"
+	}
+}
+
+dependencies {
+	minecraft libs.minecraft
+	mappings loom.layered() {
+		officialMojangMappings()
+		parchment variantOf(libs.parchment) {
+			artifactType("zip")
+		}
+	}
+
+	modImplementation libs.fabricLoader
+}

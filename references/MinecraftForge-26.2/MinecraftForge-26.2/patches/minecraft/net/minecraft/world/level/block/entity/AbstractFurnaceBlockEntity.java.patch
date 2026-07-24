@@ -1,0 +1,140 @@
+--- a/net/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity.java
++++ b/net/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity.java
+@@ -57,6 +_,7 @@
+     private static final short DEFAULT_COOKING_TOTAL_TIME = 0;
+     private static final short DEFAULT_LIT_TIME_REMAINING = 0;
+     private static final short DEFAULT_LIT_TOTAL_TIME = 0;
++    private final RecipeType<? extends AbstractCookingRecipe> recipeType;
+     protected NonNullList<ItemStack> items = NonNullList.withSize(3, ItemStack.EMPTY);
+     private int litTimeRemaining;
+     private int litTotalTime;
+@@ -109,6 +_,7 @@
+     ) {
+         super(type, worldPosition, blockState);
+         this.quickCheck = RecipeManager.createCheck(recipeType);
++        this.recipeType = recipeType;
+     }
+ 
+     @Override
+@@ -116,10 +_,10 @@
+         super.loadAdditional(input);
+         this.items = NonNullList.withSize(this.getContainerSize(), ItemStack.EMPTY);
+         ContainerHelper.loadAllItems(input, this.items);
+-        this.cookingTimer = input.getShortOr("cooking_time_spent", (short)0);
+-        this.cookingTotalTime = input.getShortOr("cooking_total_time", (short)0);
+-        this.litTimeRemaining = input.getShortOr("lit_time_remaining", (short)0);
+-        this.litTotalTime = input.getShortOr("lit_total_time", (short)0);
++        this.cookingTimer = input.getIntOr("cooking_time_spent", (short)0);
++        this.cookingTotalTime = input.getIntOr("cooking_total_time", (short)0);
++        this.litTimeRemaining = input.getIntOr("lit_time_remaining", (short)0);
++        this.litTotalTime = input.getIntOr("lit_total_time", (short)0);
+         this.recipesUsed.clear();
+         this.recipesUsed.putAll(input.read("RecipesUsed", RECIPES_USED_CODEC).orElse(Map.of()));
+     }
+@@ -127,10 +_,10 @@
+     @Override
+     protected void saveAdditional(final ValueOutput output) {
+         super.saveAdditional(output);
+-        output.putShort("cooking_time_spent", (short)this.cookingTimer);
+-        output.putShort("cooking_total_time", (short)this.cookingTotalTime);
+-        output.putShort("lit_time_remaining", (short)this.litTimeRemaining);
+-        output.putShort("lit_total_time", (short)this.litTotalTime);
++        output.putInt("cooking_time_spent", this.cookingTimer);
++        output.putInt("cooking_total_time", this.cookingTotalTime);
++        output.putInt("lit_time_remaining", this.litTimeRemaining);
++        output.putInt("lit_total_time", this.litTotalTime);
+         ContainerHelper.saveAllItems(output, this.items);
+         output.store("RecipesUsed", RECIPES_USED_CODEC, this.recipesUsed);
+     }
+@@ -159,13 +_,13 @@
+                 if (recipe != null) {
+                     int maxStackSize = entity.getMaxStackSize();
+                     ItemStack burnResult = recipe.value().assemble(input);
+-                    if (!burnResult.isEmpty() && canBurn(entity.items, maxStackSize, burnResult)) {
++                    if (!burnResult.isEmpty() && entity.canBurn(entity.items, maxStackSize, burnResult)) {
+                         if (!isLit) {
+                             int newLitTime = entity.getBurnDuration(level.fuelValues(), fuel);
+                             entity.litTimeRemaining = newLitTime;
+                             entity.litTotalTime = newLitTime;
+                             if (newLitTime > 0) {
+-                                consumeFuel(entity.items, fuel);
++                                entity.consumeFuel(entity.items, fuel);
+                                 isLit = true;
+                                 changed = true;
+                             }
+@@ -176,7 +_,7 @@
+                             if (entity.cookingTimer == entity.cookingTotalTime) {
+                                 entity.cookingTimer = 0;
+                                 entity.cookingTotalTime = recipe.value().cookingTime();
+-                                burn(entity.items, ingredient, burnResult);
++                                entity.burn(entity.items, ingredient, burnResult);
+                                 entity.setRecipeUsed(recipe);
+                                 changed = true;
+                             }
+@@ -205,16 +_,16 @@
+         }
+     }
+ 
+-    private static void consumeFuel(final NonNullList<ItemStack> items, final ItemStack fuel) {
++    protected void consumeFuel(final NonNullList<ItemStack> items, final ItemStack fuel) {
+         Item fuelItem = fuel.getItem();
+-        fuel.shrink(1);
+-        if (fuel.isEmpty()) {
+-            ItemStackTemplate remainder = fuelItem.getCraftingRemainder();
++        if (fuel.count() == 1) {
++            ItemStackTemplate remainder = fuel.getCraftingRemainder();
+             items.set(1, remainder != null ? remainder.create() : ItemStack.EMPTY);
+         }
++        fuel.shrink(1);
+     }
+ 
+-    private static boolean canBurn(final NonNullList<ItemStack> items, final int maxStackSize, final ItemStack burnResult) {
++    protected boolean canBurn(final NonNullList<ItemStack> items, final int maxStackSize, final ItemStack burnResult) {
+         ItemStack resultItemStack = items.get(2);
+         if (resultItemStack.isEmpty()) {
+             return true;
+@@ -229,7 +_,7 @@
+         return resultCount <= maxResultCount;
+     }
+ 
+-    private static void burn(final NonNullList<ItemStack> items, final ItemStack inputItemStack, final ItemStack result) {
++    protected void burn(final NonNullList<ItemStack> items, final ItemStack inputItemStack, final ItemStack result) {
+         ItemStack resultItemStack = items.get(2);
+         if (resultItemStack.isEmpty()) {
+             items.set(2, result.copy());
+@@ -370,6 +_,35 @@
+         for (ItemStack itemStack : this.items) {
+             contents.accountStack(itemStack);
+         }
++    }
++
++    net.minecraftforge.common.util.LazyOptional<? extends net.minecraftforge.items.IItemHandler>[] handlers =
++        net.minecraftforge.items.wrapper.SidedInvWrapper.create(this, Direction.UP, Direction.DOWN, Direction.NORTH);
++
++    @Override
++    public <T> net.minecraftforge.common.util.LazyOptional<T> getCapability(net.minecraftforge.common.capabilities.Capability<T> capability, @Nullable Direction facing) {
++        if (capability == net.minecraftforge.common.capabilities.ForgeCapabilities.ITEM_HANDLER && facing != null && !this.remove) {
++            return switch (facing) {
++                case UP -> handlers[0].cast();
++                case DOWN -> handlers[1].cast();
++                default -> handlers[2].cast();
++            };
++        }
++        return super.getCapability(capability, facing);
++    }
++
++    @Override
++    public void invalidateCaps() {
++        super.invalidateCaps();
++        for (int x = 0; x < handlers.length; x++) {
++            handlers[x].invalidate();
++        }
++    }
++
++    @Override
++    public void reviveCaps() {
++        super.reviveCaps();
++        this.handlers = net.minecraftforge.items.wrapper.SidedInvWrapper.create(this, Direction.UP, Direction.DOWN, Direction.NORTH);
+     }
+ 
+     @Override

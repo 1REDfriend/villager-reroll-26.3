@@ -1,0 +1,16 @@
+--- a/net/minecraft/client/renderer/Sheets.java
++++ b/net/minecraft/client/renderer/Sheets.java
+@@ -120,4 +_,13 @@
+             case COPPER_OXIDIZED -> (SpriteId)CHEST_COPPER.oxidized().select(type);
+         };
+     }
++
++    static {
++        if (net.minecraftforge.fml.ModLoader.isLoadingStateValid() && !net.minecraftforge.fml.ModLoader.hasCompletedState(net.minecraftforge.common.ForgeStatesProvider.LOAD_REGISTRIES)) {
++            com.mojang.logging.LogUtils.getLogger().error(
++                    "net.minecraft.client.renderer.Sheets loaded too early, modded registry-based materials may not work correctly",
++                    new IllegalStateException("net.minecraft.client.renderer.Sheets loaded too early")
++            );
++        }
++    }
+ }

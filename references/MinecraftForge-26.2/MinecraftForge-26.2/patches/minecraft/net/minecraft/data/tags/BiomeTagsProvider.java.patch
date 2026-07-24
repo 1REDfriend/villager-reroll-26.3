@@ -1,0 +1,13 @@
+--- a/net/minecraft/data/tags/BiomeTagsProvider.java
++++ b/net/minecraft/data/tags/BiomeTagsProvider.java
+@@ -16,6 +_,10 @@
+         super(output, Registries.BIOME, lookupProvider);
+     }
+ 
++    public BiomeTagsProvider(final PackOutput output, final CompletableFuture<HolderLookup.Provider> lookupProvider, String modId, @org.jetbrains.annotations.Nullable net.minecraftforge.common.data.ExistingFileHelper existingFileHelper) {
++        super(output, Registries.BIOME, lookupProvider, modId, existingFileHelper);
++    }
++
+     @Override
+     protected void addTags(final HolderLookup.Provider registries) {
+         this.tag(BiomeTags.IS_DEEP_OCEAN).add(Biomes.DEEP_FROZEN_OCEAN).add(Biomes.DEEP_COLD_OCEAN).add(Biomes.DEEP_OCEAN).add(Biomes.DEEP_LUKEWARM_OCEAN);

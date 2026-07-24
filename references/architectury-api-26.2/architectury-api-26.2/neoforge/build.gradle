@@ -1,0 +1,145 @@
+apply plugin: "com.gradleup.shadow"
+apply plugin: "me.shedaniel.unified-publishing"
+
+loom {
+    accessWidenerPath = project(":common").loom.accessWidenerPath
+
+    neoForge {
+        convertAccessWideners(tasks.named("shadowJar", Jar), "architectury.accessWidener")
+    }
+}
+
+architectury {
+    platformSetupLoomIde()
+    neoForge()
+}
+
+configurations {
+    common
+    shadowCommon
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentNeoForge.extendsFrom common
+}
+
+dependencies {
+    neoForge "net.neoforged:neoforge:${rootProject.neoforge_version}"
+
+    common(project(path: ":common")) { transitive false }
+    shadowCommon(project(path: ":common", configuration: "transformProductionNeoForge")) { transitive false }
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("META-INF/neoforge.mods.toml") {
+        expand "version": project.version
+    }
+}
+
+jar {
+    archiveClassifier = "raw"
+}
+
+shadowJar {
+    exclude "fabric.mod.json"
+    exclude "architectury.common.json"
+
+    dependsOn jar
+    mainSpec.sourcePaths.clear()
+    from(zipTree(jar.archiveFile))
+    configurations = [project.configurations.shadowCommon]
+    archiveClassifier = null
+    zip64 = true
+    from rootProject.file("LICENSE.md")
+
+    // Replace the common stubs with the NeoForge-native implementations via relocation.
+    exclude "dev/architectury/core/block/ArchitecturyLiquidBlock.class"
+    exclude "dev/architectury/core/fluid/ArchitecturyFlowingFluid.class"
+    exclude "dev/architectury/core/fluid/ArchitecturyFlowingFluid\$Source.class"
+    exclude "dev/architectury/core/fluid/ArchitecturyFlowingFluid\$Flowing.class"
+    exclude "dev/architectury/core/item/ArchitecturyBucketItem.class"
+    relocate "dev.architectury.core.block.neoforge.imitator", "dev.architectury.core.block"
+    relocate "dev.architectury.core.fluid.neoforge.imitator", "dev.architectury.core.fluid"
+    relocate "dev.architectury.core.item.neoforge.imitator", "dev.architectury.core.item"
+}
+
+assemble.dependsOn shadowJar
+
+configurations {
+    apiElements {
+        outgoing.artifacts.clear()
+        outgoing.artifact(shadowJar)
+    }
+    runtimeElements {
+        outgoing.artifacts.clear()
+        outgoing.artifact(shadowJar)
+    }
+}
+
+sourcesJar {
+    afterEvaluate {
+        def depSources = project(":common").sourcesJar
+        dependsOn depSources
+        from(depSources.archiveFile.map { zipTree(it) }) {
+            exclude "architectury.accessWidener"
+        }
+    }
+}
+
+components.java {
+    addVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {}
+    withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
+        skip()
+    }
+}
+
+publishing {
+    publications {
+        mavenNeoForge(MavenPublication) {
+            artifactId = rootProject.archivesBaseName + "-neoforge"
+            from components.java
+        }
+    }
+
+    repositories {
+        if (System.getenv("MAVEN_PASS") != null) {
+            maven {
+                url = "https://deploy.shedaniel.me/"
+                credentials {
+                    username = "shedaniel"
+                    password = System.getenv("MAVEN_PASS")
+                }
+            }
+        }
+    }
+}
+
+unifiedPublishing {
+    if (rootProject.neoforge_pr != "") return
+    project {
+        displayName = "[NeoForge $rootProject.supported_version] v$project.version"
+        releaseType = "$rootProject.artifact_type"
+        changelog = releaseChangelog()
+        gameLoaders = ["neoforge"]
+        mainPublication shadowJar
+
+        var CURSE_API_KEY = project.findProperty("CURSE_API_KEY") ?: System.getenv("CURSE_API_KEY")
+        if (CURSE_API_KEY != null) {
+            curseforge {
+                token = CURSE_API_KEY
+                id = rootProject.curseforge_id
+                gameVersions.addAll "Java 25", project.minecraft_version
+            }
+        }
+
+        var MODRINTH_TOKEN = project.findProperty("MODRINTH_TOKEN") ?: System.getenv("MODRINTH_TOKEN")
+        if (MODRINTH_TOKEN != null) {
+            modrinth {
+                token = MODRINTH_TOKEN
+                id = rootProject.modrinth_id
+                version = "$project.version+$project.name"
+                gameVersions.addAll project.minecraft_version
+            }
+        }
+    }
+}

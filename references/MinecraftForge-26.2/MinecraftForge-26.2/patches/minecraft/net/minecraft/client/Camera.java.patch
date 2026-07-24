@@ -1,0 +1,47 @@
+--- a/net/minecraft/client/Camera.java
++++ b/net/minecraft/client/Camera.java
+@@ -224,11 +_,13 @@
+         }
+ 
+         float fov = this.minecraft.options.fov().get().intValue() * Mth.lerp(partialTicks, this.oldFovModifier, this.fovModifier);
+-        return this.modifyFovBasedOnDeathOrFluid(partialTicks, fov);
++        var ret = this.modifyFovBasedOnDeathOrFluid(partialTicks, fov);
++        return net.minecraftforge.client.event.ForgeEventFactoryClient.fireComputeFov(this.minecraft.gameRenderer, this, partialTicks, ret, true).getFOV();
+     }
+ 
+     private float calculateHudFov(final float partialTicks) {
+-        return this.modifyFovBasedOnDeathOrFluid(partialTicks, 70.0F);
++        var ret = this.modifyFovBasedOnDeathOrFluid(partialTicks, 70.0F);
++        return net.minecraftforge.client.event.ForgeEventFactoryClient.fireComputeFov(this.minecraft.gameRenderer, this, partialTicks, ret, false).getFOV();
+     }
+ 
+     private float modifyFovBasedOnDeathOrFluid(final float partialTicks, float fov) {
+@@ -337,9 +_,13 @@
+     }
+ 
+     protected void setRotation(final float yRot, final float xRot) {
++        setRotation(yRot, xRot, 0.0f);
++    }
++
++    public void setRotation(float yRot, float xRot, float z) {
+         this.xRot = xRot;
+         this.yRot = yRot;
+-        this.rotation.rotationYXZ((float) Math.PI - yRot * (float) (Math.PI / 180.0), -xRot * (float) (Math.PI / 180.0), 0.0F);
++        this.rotation.rotationYXZ((float) Math.PI - yRot * (float) (Math.PI / 180.0), -xRot * (float) (Math.PI / 180.0), z * (float) (Math.PI / 180.0));
+         FORWARDS.rotate(this.rotation, this.forwards);
+         UP.rotate(this.rotation, this.up);
+         LEFT.rotate(this.rotation, this.left);
+@@ -370,6 +_,13 @@
+ 
+     public float yRot() {
+         return this.yRot;
++    }
++
++    public net.minecraft.world.level.block.state.BlockState getBlockAtCamera() {
++        if (!this.initialized)
++            return net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
++        else
++            return this.level.getBlockState(this.blockPosition).getStateAtViewpoint(this.level, this.blockPosition, this.position);
+     }
+ 
+     @Override

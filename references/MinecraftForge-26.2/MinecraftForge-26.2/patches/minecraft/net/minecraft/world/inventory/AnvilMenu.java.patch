@@ -1,0 +1,54 @@
+--- a/net/minecraft/world/inventory/AnvilMenu.java
++++ b/net/minecraft/world/inventory/AnvilMenu.java
+@@ -77,6 +_,8 @@
+             player.giveExperienceLevels(-this.cost.get());
+         }
+ 
++        float breakChance = net.minecraftforge.event.ForgeEventFactory.onAnvilRepair(player, carried, AnvilMenu.this.inputSlots.getItem(0), AnvilMenu.this.inputSlots.getItem(1)).getBreakChance();
++
+         if (this.repairItemCountCost > 0) {
+             ItemStack addition = this.inputSlots.getItem(1);
+             if (!addition.isEmpty() && addition.getCount() > this.repairItemCountCost) {
+@@ -99,7 +_,7 @@
+         this.inputSlots.setItem(0, ItemStack.EMPTY);
+         this.access.execute((level, pos) -> {
+             BlockState state = level.getBlockState(pos);
+-            if (!player.hasInfiniteMaterials() && state.is(BlockTags.ANVIL) && player.getRandom().nextFloat() < 0.12F) {
++            if (!player.hasInfiniteMaterials() && state.is(BlockTags.ANVIL) && player.getRandom().nextFloat() < breakChance) {
+                 BlockState newBlockState = AnvilBlock.damage(state);
+                 if (newBlockState == null) {
+                     level.removeBlock(pos, false);
+@@ -128,8 +_,11 @@
+             ItemEnchantments.Mutable enchantments = new ItemEnchantments.Mutable(EnchantmentHelper.getEnchantmentsForCrafting(result));
+             tax += (long)input.getOrDefault(DataComponents.REPAIR_COST, 0).intValue() + addition.getOrDefault(DataComponents.REPAIR_COST, 0).intValue();
+             this.repairItemCountCost = 0;
++            boolean usingBook = false;
++
++            if (!net.minecraftforge.common.ForgeHooks.onAnvilChange(this, input, addition, resultSlots, itemName, tax, this.player)) return;
+             if (!addition.isEmpty()) {
+-                boolean usingBook = addition.has(DataComponents.STORED_ENCHANTMENTS);
++                usingBook = addition.has(DataComponents.STORED_ENCHANTMENTS);
+                 if (result.isDamageableItem() && input.isValidRepairItem(addition)) {
+                     int repairAmount = Math.min(result.getDamageValue(), result.getMaxDamage() / 4);
+                     if (repairAmount <= 0) {
+@@ -233,6 +_,10 @@
+                 result.remove(DataComponents.CUSTOM_NAME);
+             }
+ 
++            if (usingBook && !result.isBookEnchantable(addition)) {
++                result = ItemStack.EMPTY;
++            }
++
+             int finalPrice = price <= 0 ? 0 : (int)Mth.clamp(tax + price, 0L, 2147483647L);
+             this.cost.set(finalPrice);
+             if (price <= 0) {
+@@ -304,5 +_,9 @@
+ 
+     public int getCost() {
+         return this.cost.get();
++    }
++
++    public void setMaximumCost(int value) {
++       this.cost.set(value);
+     }
+ }

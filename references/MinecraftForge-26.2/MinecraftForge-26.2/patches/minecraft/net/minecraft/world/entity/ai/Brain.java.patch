@@ -1,0 +1,45 @@
+--- a/net/minecraft/world/entity/ai/Brain.java
++++ b/net/minecraft/world/entity/ai/Brain.java
+@@ -252,6 +_,10 @@
+         this.schedule = schedule;
+     }
+ 
++    public EnvironmentAttribute<Activity> getSchedule() {
++        return this.schedule;
++    }
++
+     public void setCoreActivities(final Set<Activity> activities) {
+         this.coreActivities = activities;
+     }
+@@ -453,6 +_,31 @@
+ 
+     public boolean isBrainDead() {
+         return this.memories.isEmpty() && this.sensors.isEmpty() && this.availableBehaviorsByPriority.isEmpty();
++    }
++
++    public net.minecraftforge.common.util.BrainBuilder<E> createBuilder() {
++        var builder = new net.minecraftforge.common.util.BrainBuilder<>(this);
++        builder.getMemoryTypes().addAll(this.memories.keySet());
++        builder.getSensorTypes().addAll(this.sensors.keySet());
++        builder.addAvailableBehaviorsByPriorityFrom(this.availableBehaviorsByPriority);
++        builder.setSchedule(this.getSchedule());
++        builder.addActivityRequirementsFrom(this.activityRequirements);
++        builder.addActivityMemoriesToEraseWhenStoppedFrom(this.activityMemoriesToEraseWhenStopped);
++        builder.getCoreActivities().addAll(this.coreActivities);
++        builder.setDefaultActivity(this.defaultActivity);
++        builder.setActiveActivites(this.activeActivities);
++        return builder;
++    }
++
++    public void copyFromBuilder(net.minecraftforge.common.util.BrainBuilder<E> builder) {
++        builder.getMemoryTypes().forEach(this::registerMemory);
++        builder.addAvailableBehaviorsByPriorityTo(this.availableBehaviorsByPriority);
++        this.setSchedule(builder.getSchedule());
++        builder.addActivityRequirementsTo(this.activityRequirements);
++        builder.addActivityMemoriesToEraseWhenStoppedTo(this.activityMemoriesToEraseWhenStopped);
++        this.setCoreActivities(builder.getCoreActivities());
++        this.setDefaultActivity(builder.getDefaultActivity());
++        this.activeActivities.addAll(builder.getActiveActivites());
+     }
+ 
+     @FunctionalInterface

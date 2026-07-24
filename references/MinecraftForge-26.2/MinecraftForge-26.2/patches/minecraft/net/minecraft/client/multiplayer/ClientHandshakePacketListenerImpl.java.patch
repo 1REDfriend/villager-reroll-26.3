@@ -1,0 +1,18 @@
+--- a/net/minecraft/client/multiplayer/ClientHandshakePacketListenerImpl.java
++++ b/net/minecraft/client/multiplayer/ClientHandshakePacketListenerImpl.java
+@@ -211,6 +_,7 @@
+         Component title = this.wasTransferredTo ? CommonComponents.TRANSFER_CONNECT_FAILED : CommonComponents.CONNECT_FAILED;
+         if (this.serverData != null && this.serverData.isRealm()) {
+             this.minecraft.gui.setScreen(new DisconnectedScreen(this.parent, title, details.reason(), CommonComponents.GUI_BACK));
++        } else if (net.minecraftforge.client.ForgeHooksClient.onClientDisconnect(this.connection, this.minecraft, this.parent, details.reason())) {
+         } else {
+             this.minecraft.gui.setScreen(new DisconnectedScreen(this.parent, title, details));
+         }
+@@ -235,6 +_,7 @@
+ 
+     @Override
+     public void handleCustomQuery(final ClientboundCustomQueryPacket packet) {
++        if (net.minecraftforge.common.ForgeHooks.onCustomPayload(packet, this.connection)) return;
+         this.updateStatus.accept(Component.translatable("connect.negotiating"));
+         this.connection.send(new ServerboundCustomQueryAnswerPacket(packet.transactionId(), null));
+     }

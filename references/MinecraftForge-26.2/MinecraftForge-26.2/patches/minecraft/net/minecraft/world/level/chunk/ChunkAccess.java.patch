@@ -1,0 +1,45 @@
+--- a/net/minecraft/world/level/chunk/ChunkAccess.java
++++ b/net/minecraft/world/level/chunk/ChunkAccess.java
+@@ -318,23 +_,28 @@
+ 
+     @Override
+     public final void findBlockLightSources(final BiConsumer<BlockPos, BlockState> consumer) {
+-        this.findBlocks(state -> state.getLightEmission() != 0, consumer);
++        this.findBlocks((state, pos) -> state.getLightEmission(this, pos) != 0, consumer);
+     }
+ 
+     public void findBlocks(final Predicate<BlockState> predicate, final BiConsumer<BlockPos, BlockState> consumer) {
++        findBlocks((state, pos) -> predicate.test(state), consumer);
++    }
++
++    public void findBlocks(final java.util.function.BiPredicate<BlockState, BlockPos> predicate, final BiConsumer<BlockPos, BlockState> consumer) {
+         BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
+ 
+         for (int sectionY = this.getMinSectionY(); sectionY <= this.getMaxSectionY(); sectionY++) {
+             LevelChunkSection section = this.getSection(this.getSectionIndexFromSectionY(sectionY));
+-            if (section.maybeHas(predicate)) {
++            if (section.maybeHas(state -> predicate.test(state, BlockPos.ZERO))) {
+                 BlockPos origin = SectionPos.of(this.chunkPos, sectionY).origin();
+ 
+                 for (int y = 0; y < 16; y++) {
+                     for (int z = 0; z < 16; z++) {
+                         for (int x = 0; x < 16; x++) {
+                             BlockState state = section.getBlockState(x, y, z);
+-                            if (predicate.test(state)) {
+-                                consumer.accept(mutablePos.setWithOffset(origin, x, y, z), state);
++                            mutablePos.setWithOffset(origin, x, y, z);
++                            if (predicate.test(state, mutablePos.immutable())) {
++                                consumer.accept(mutablePos, state);
+                             }
+                         }
+                     }
+@@ -499,5 +_,9 @@
+     }
+ 
+     public record PackedTicks(List<SavedTick<Block>> blocks, List<SavedTick<Fluid>> fluids) {
++    }
++
++    public net.minecraft.world.level.@Nullable LevelAccessor getWorldForge() {
++        return null;
+     }
+ }

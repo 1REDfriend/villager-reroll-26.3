@@ -1,6 +1,7 @@
 package com.joplayx.client.state;
 
 import com.joplayx.VillagerReroll;
+import com.joplayx.client.VillagerRerollClient;
 import com.joplayx.client.config.RerollerConfig;
 import com.joplayx.client.util.HotbarUtil;
 import com.joplayx.client.util.OffersStore;
@@ -87,7 +88,9 @@ public class RerollController {
 					stop(client, "No target enchantment set in config!"); return;
 				}
 				if (!RerollerConfig.get().hasLecternPos()) {
-				stop(client, "No lectern position set! Use L key or Mod Menu config."); return;
+				stop(client, "No lectern position set! Use " +
+						VillagerRerollClient.setPositionKey.getTranslatedKeyMessage().getString() +
+						" key or Mod Menu config."); return;
 				}
 				Villager v = findNearestVillager(player, level);
 				if (v == null) {
@@ -232,7 +235,9 @@ public class RerollController {
 		targetEntityId = -1;
 		OffersStore.clear();
 		setState(RerollState.PRE_CHECK, "Starting...", 2);
-		client.player.sendSystemMessage(Component.literal("[Reroller] Started. Press K to emergency stop."));
+		client.player.sendSystemMessage(Component.literal("[Reroller] Started. Press " +
+				VillagerRerollClient.emergencyStopKey.getTranslatedKeyMessage().getString() +
+				" to emergency stop."));
 	}
 
 	private void stop(Minecraft client, String reason) {

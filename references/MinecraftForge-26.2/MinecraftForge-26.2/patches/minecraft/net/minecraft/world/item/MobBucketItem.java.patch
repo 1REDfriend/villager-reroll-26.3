@@ -1,0 +1,59 @@
+--- a/net/minecraft/world/item/MobBucketItem.java
++++ b/net/minecraft/world/item/MobBucketItem.java
+@@ -21,13 +_,18 @@
+ import org.jspecify.annotations.Nullable;
+ 
+ public class MobBucketItem extends BucketItem {
+-    private final EntityType<? extends Mob> type;
+-    private final SoundEvent emptySound;
++    private final java.util.function.Supplier<? extends EntityType<? extends Mob>> entityTypeSupplier;
++    private final java.util.function.Supplier<? extends SoundEvent> emptySoundSupplier;
+ 
++    @Deprecated
+     public MobBucketItem(final EntityType<? extends Mob> type, final Fluid content, final SoundEvent emptySound, final Item.Properties properties) {
+-        super(content, properties);
+-        this.type = type;
+-        this.emptySound = emptySound;
++        this(() -> type, () -> content, () -> emptySound, properties);
++    }
++
++    public MobBucketItem(java.util.function.Supplier<? extends EntityType<? extends Mob>> entitySupplier, java.util.function.Supplier<? extends Fluid> fluidSupplier, java.util.function.Supplier<? extends SoundEvent> soundSupplier, Item.Properties properties) {
++        super(fluidSupplier, properties);
++        this.emptySoundSupplier = soundSupplier;
++        this.entityTypeSupplier = entitySupplier;
+     }
+ 
+     @Override
+@@ -40,11 +_,11 @@
+ 
+     @Override
+     protected void playEmptySound(final @Nullable LivingEntity user, final LevelAccessor level, final BlockPos pos) {
+-        level.playSound(user, pos, this.emptySound, SoundSource.NEUTRAL, 1.0F, 1.0F);
++        level.playSound(user, pos, this.getEmptySound(), SoundSource.NEUTRAL, 1.0F, 1.0F);
+     }
+ 
+     private void spawn(final ServerLevel level, final ItemStack itemStack, final BlockPos spawnPos) {
+-        Mob mob = this.type.create(level, EntityType.createDefaultStackConfig(level, itemStack, null), spawnPos, EntitySpawnReason.BUCKET, true, false);
++        Mob mob = this.getFishType().create(level, EntityType.createDefaultStackConfig(level, itemStack, null), spawnPos, EntitySpawnReason.BUCKET, true, false);
+         if (mob instanceof Bucketable bucketable) {
+             CustomData entityData = itemStack.getOrDefault(DataComponents.BUCKET_ENTITY_DATA, CustomData.EMPTY);
+             bucketable.loadFromBucketTag(entityData.copyTag());
+@@ -57,9 +_,17 @@
+         }
+     }
+ 
++    protected EntityType<? extends Mob> getFishType() {
++        return entityTypeSupplier.get();
++    }
++
++    protected SoundEvent getEmptySound() {
++        return emptySoundSupplier.get();
++    }
++
+     @Override
+     public boolean emptyContents(final @Nullable LivingEntity user, final Level level, final BlockPos pos, final @Nullable BlockHitResult hitResult) {
+-        if (this.content == Fluids.EMPTY) {
++        if (this.getContent() == Fluids.EMPTY) {
+             this.playEmptySound(user, level, pos);
+             return true;
+         } else {

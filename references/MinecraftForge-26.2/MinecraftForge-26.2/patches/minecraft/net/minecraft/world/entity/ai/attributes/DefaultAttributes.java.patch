@@ -1,0 +1,17 @@
+--- a/net/minecraft/world/entity/ai/attributes/DefaultAttributes.java
++++ b/net/minecraft/world/entity/ai/attributes/DefaultAttributes.java
+@@ -190,11 +_,12 @@
+         .build();
+ 
+     public static AttributeSupplier getSupplier(final EntityType<? extends LivingEntity> type) {
+-        return SUPPLIERS.get(type);
++        AttributeSupplier supplier = net.minecraftforge.common.ForgeHooks.getAttributesView().get(type);
++        return supplier != null ? supplier : SUPPLIERS.get(type);
+     }
+ 
+     public static boolean hasSupplier(final EntityType<?> type) {
+-        return SUPPLIERS.containsKey(type);
++        return SUPPLIERS.containsKey(type) || net.minecraftforge.common.ForgeHooks.getAttributesView().containsKey(type);
+     }
+ 
+     public static void validate() {

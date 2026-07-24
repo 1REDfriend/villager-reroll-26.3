@@ -1,0 +1,193 @@
+--- a/net/minecraft/world/level/block/Block.java
++++ b/net/minecraft/world/level/block/Block.java
+@@ -75,11 +_,12 @@
+ import org.jspecify.annotations.Nullable;
+ import org.slf4j.Logger;
+ 
+-public class Block extends BlockBehaviour implements ItemLike {
++public class Block extends BlockBehaviour implements ItemLike, net.minecraftforge.common.extensions.IForgeBlock {
+     public static final MapCodec<Block> CODEC = simpleCodec(Block::new);
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private final Holder.Reference<Block> builtInRegistryHolder = BuiltInRegistries.BLOCK.createIntrusiveHolder(this);
+-    public static final IdMapper<BlockState> BLOCK_STATE_REGISTRY = new IdMapper<>();
++    @Deprecated //Forge: Do not use, use GameRegistry
++    public static final IdMapper<BlockState> BLOCK_STATE_REGISTRY = net.minecraftforge.registries.GameData.BlockCallbacks.getBlockStateIDMap();
+     private static final LoadingCache<VoxelShape, Boolean> SHAPE_FULL_BLOCK_CACHE = CacheBuilder.newBuilder()
+         .maximumSize(512L)
+         .weakKeys()
+@@ -247,6 +_,7 @@
+                 LOGGER.error("Block classes should end with Block and {} doesn't.", className);
+             }
+         }
++        initClient();
+     }
+ 
+     public static boolean isExceptionForConnection(final BlockState state) {
+@@ -297,7 +_,12 @@
+         }
+     }
+ 
++    @Deprecated // FORGE: use shouldRenderFace with level and block pos instead
+     public static boolean shouldRenderFace(final BlockState state, final BlockState neighborState, final Direction direction) {
++        return shouldRenderFace(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO, state, neighborState, direction);
++    }
++
++    public static boolean shouldRenderFace(final BlockGetter level, final BlockPos pos, final BlockState state, final BlockState neighborState, final Direction direction) {
+         VoxelShape occluder = neighborState.getFaceOcclusionShape(direction.getOpposite());
+         if (occluder == Shapes.block()) {
+             return false;
+@@ -396,17 +_,22 @@
+         }
+     }
+ 
++    public static void dropResources(final BlockState state, final Level level, final BlockPos pos, final @Nullable BlockEntity blockEntity, final @Nullable Entity breaker, final ItemStack tool) {
++        dropResources(state, level, pos, blockEntity, breaker, tool, true);
++    }
++
+     public static void dropResources(
+         final BlockState state,
+         final Level level,
+         final BlockPos pos,
+         final @Nullable BlockEntity blockEntity,
+         final @Nullable Entity breaker,
+-        final ItemStack tool
++        final ItemStack tool,
++        final boolean dropXp
+     ) {
+         if (level instanceof ServerLevel serverLevel) {
+             getDrops(state, serverLevel, pos, blockEntity, breaker, tool).forEach(stack -> popResource(level, pos, stack));
+-            state.spawnAfterBreak(serverLevel, pos, tool, true);
++            state.spawnAfterBreak(serverLevel, pos, tool, dropXp);
+         }
+     }
+ 
+@@ -436,7 +_,7 @@
+     }
+ 
+     private static void popResource(final Level level, final Supplier<ItemEntity> entityFactory, final ItemStack itemStack) {
+-        if (level instanceof ServerLevel serverLevel && !itemStack.isEmpty() && serverLevel.getGameRules().get(GameRules.BLOCK_DROPS)) {
++        if (level instanceof ServerLevel serverLevel && !itemStack.isEmpty() && serverLevel.getGameRules().get(GameRules.BLOCK_DROPS) && !level.restoringBlockSnapshots) {
+             ItemEntity entity = entityFactory.get();
+             entity.setDefaultPickUpDelay();
+             level.addFreshEntity(entity);
+@@ -444,11 +_,12 @@
+     }
+ 
+     public void popExperience(final ServerLevel level, final BlockPos pos, final int amount) {
+-        if (level.getGameRules().get(GameRules.BLOCK_DROPS)) {
++        if (level.getGameRules().get(GameRules.BLOCK_DROPS) && !level.restoringBlockSnapshots) {
+             ExperienceOrb.award(level, Vec3.atCenterOf(pos), amount);
+         }
+     }
+ 
++    @Deprecated //Forge: Use more sensitive version
+     public float getExplosionResistance() {
+         return this.explosionResistance;
+     }
+@@ -473,7 +_,8 @@
+     ) {
+         player.awardStat(Stats.BLOCK_MINED.get(this));
+         player.causeFoodExhaustion(0.005F);
+-        dropResources(state, level, pos, blockEntity, player, destroyedWith);
++        //Forge: Don't drop xp as part of the resources as it is handled by the patches in ServerPlayerGameMode#destroyBlock
++        dropResources(state, level, pos, blockEntity, player, destroyedWith, false);
+     }
+ 
+     public void setPlacedBy(final Level level, final BlockPos pos, final BlockState state, final @Nullable LivingEntity by, final ItemStack itemStack) {
+@@ -495,6 +_,7 @@
+         return this.bounceRestitution;
+     }
+ 
++    /** @deprecated Forge: use {@link net.minecraftforge.common.extensions.IForgeBlockState#getFriction(LevelReader, BlockPos, Entity)}*/
+     public float getFriction() {
+         return this.friction;
+     }
+@@ -565,7 +_,7 @@
+             this.item = Item.byBlock(this);
+         }
+ 
+-        return this.item;
++        return net.minecraftforge.registries.ForgeRegistries.ITEMS.getDelegateOrThrow(this.item).get(); // Forge: Vanilla caches the items, update with registry replacements.
+     }
+ 
+     public boolean hasDynamicShape() {
+@@ -630,6 +_,79 @@
+         public int hashCode() {
+             return System.identityHashCode(this.first) * 31 + System.identityHashCode(this.second);
+         }
++    }
++
++    private Object renderProperties;
++
++    /**
++     *  DO NOT CALL, IT WILL DISAPPEAR IN THE FUTURE
++     *  Call RenderProperties.get instead
++     */
++    public Object getRenderPropertiesInternal() {
++        return renderProperties;
++    }
++
++    private void initClient() {
++        // Minecraft instance isn't available in datagen, so don't call initializeClient if in datagen
++        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT && !net.minecraftforge.fml.loading.FMLLoader.getLaunchHandler().isData()) {
++            initializeClient(properties -> {
++                if (properties == this) {
++                    throw new IllegalStateException("Don't extend IBlockRenderProperties in your block, use an anonymous class instead.");
++                }
++                this.renderProperties = properties;
++            });
++        }
++    }
++
++    public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientBlockExtensions> consumer) {
++    }
++
++    @Override
++    public boolean canSustainPlant(BlockState state, BlockGetter world, BlockPos pos, Direction facing, net.minecraftforge.common.IPlantable plantable) {
++        var plant = plantable.getPlant(world, pos.relative(facing));
++        var type = plantable.getPlantType(world, pos.relative(facing));
++
++        if (plant.getBlock() == Blocks.CACTUS) {
++            return state.is(Blocks.CACTUS) || state.is(BlockTags.SAND);
++        } else if (plant.getBlock() == Blocks.SUGAR_CANE && this == Blocks.SUGAR_CANE) {
++            return true;
++        } else if (plantable instanceof VegetationBlock veg && veg.mayPlaceOn(state, world, pos)) {
++            return true;
++        } else if (net.minecraftforge.common.PlantType.DESERT.equals(type)) {
++             return state.is(BlockTags.SAND) || state.is(BlockTags.TERRACOTTA) || state.is(BlockTags.DIRT);
++        } else if (net.minecraftforge.common.PlantType.NETHER.equals(type)) {
++             return this == Blocks.SOUL_SAND;
++        } else if (net.minecraftforge.common.PlantType.FUNGUS.equals(type)) {
++            return state.is(BlockTags.NYLIUM) || this == Blocks.MYCELIUM || this == Blocks.SOUL_SOIL;
++        } else if (net.minecraftforge.common.PlantType.CROP.equals(type)) {
++             return state.is(BlockTags.GROWS_CROPS);
++        } else if (net.minecraftforge.common.PlantType.CAVE.equals(type)) {
++             return state.isFaceSturdy(world, pos, Direction.UP) && state.canOcclude();
++        } else if (net.minecraftforge.common.PlantType.PLAINS.equals(type)) {
++            return state.is(BlockTags.DIRT) || this == Blocks.FARMLAND;
++        } else if (net.minecraftforge.common.PlantType.MOIST.equals(type)) {
++            return state.is(BlockTags.DIRT) || this == Blocks.CLAY || this == Blocks.FARMLAND;
++        } else if (net.minecraftforge.common.PlantType.WATER.equals(type)) {
++             return (state.is(Blocks.WATER) || state.getBlock() instanceof IceBlock) && world.getFluidState(pos.relative(facing)).isEmpty();
++        } else if (net.minecraftforge.common.PlantType.BEACH.equals(type)) {
++             boolean isBeach = state.is(BlockTags.DIRT) || state.is(BlockTags.SAND);
++             boolean hasWater = false;
++             for (Direction face : Direction.Plane.HORIZONTAL) {
++                 BlockState adjacentBlockState = world.getBlockState(pos.relative(face));
++                 var adjacentFluidState = world.getFluidState(pos.relative(face));
++                 hasWater = hasWater || adjacentBlockState.is(Blocks.FROSTED_ICE) || adjacentFluidState.is(net.minecraft.tags.FluidTags.WATER);
++                 if (hasWater) {
++                    break; //No point continuing.
++                 }
++             }
++             return isBeach && hasWater;
++        }
++        return false;
++    }
++
++    @SuppressWarnings("deprecation")
++    public SoundType getSoundType(BlockState state, LevelReader level, BlockPos pos, @Nullable Entity entity) {
++        return getSoundType(state);
+     }
+ 
+     @Retention(RetentionPolicy.CLASS)

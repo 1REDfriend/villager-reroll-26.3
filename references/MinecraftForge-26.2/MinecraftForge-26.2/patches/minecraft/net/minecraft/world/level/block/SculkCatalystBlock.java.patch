@@ -1,0 +1,17 @@
+--- a/net/minecraft/world/level/block/SculkCatalystBlock.java
++++ b/net/minecraft/world/level/block/SculkCatalystBlock.java
+@@ -60,8 +_,13 @@
+     @Override
+     protected void spawnAfterBreak(final BlockState state, final ServerLevel level, final BlockPos pos, final ItemStack tool, final boolean dropExperience) {
+         super.spawnAfterBreak(state, level, pos, tool, dropExperience);
+-        if (dropExperience) {
++        if (false && dropExperience) { // Forge Moved to getExpDrop
+             this.tryDropExperience(level, pos, tool, this.xpRange);
+         }
++    }
++
++    @Override
++    public int getExpDrop(BlockState state, net.minecraft.world.level.LevelReader level, RandomSource randomSource, BlockPos pos, int fortuneLevel, int silkTouchLevel) {
++       return silkTouchLevel == 0 ? this.xpRange.sample(randomSource) : 0;
+     }
+ }

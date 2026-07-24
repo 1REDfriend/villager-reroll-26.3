@@ -1,0 +1,25 @@
+--- a/net/minecraft/world/level/storage/TagValueOutput.java
++++ b/net/minecraft/world/level/storage/TagValueOutput.java
+@@ -17,15 +_,21 @@
+     private final ProblemReporter problemReporter;
+     private final DynamicOps<Tag> ops;
+     private final CompoundTag output;
++    public final HolderLookup.@org.jspecify.annotations.Nullable Provider lookup;
+ 
+     private TagValueOutput(final ProblemReporter problemReporter, final DynamicOps<Tag> ops, final CompoundTag output) {
++        this(problemReporter, ops, output, null);
++    }
++
++    TagValueOutput(final ProblemReporter problemReporter, final DynamicOps<Tag> ops, final CompoundTag output, final HolderLookup.@org.jspecify.annotations.Nullable Provider lookup) {
+         this.problemReporter = problemReporter;
+         this.ops = ops;
+         this.output = output;
++        this.lookup = lookup;
+     }
+ 
+     public static TagValueOutput createWithContext(final ProblemReporter problemReporter, final HolderLookup.Provider provider) {
+-        return new TagValueOutput(problemReporter, provider.createSerializationContext(NbtOps.INSTANCE), new CompoundTag());
++        return new TagValueOutput(problemReporter, provider.createSerializationContext(NbtOps.INSTANCE), new CompoundTag(), provider);
+     }
+ 
+     public static TagValueOutput createWithoutContext(final ProblemReporter problemReporter) {

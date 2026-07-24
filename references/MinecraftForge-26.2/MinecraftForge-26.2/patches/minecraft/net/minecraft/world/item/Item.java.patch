@@ -1,0 +1,117 @@
+--- a/net/minecraft/world/item/Item.java
++++ b/net/minecraft/world/item/Item.java
+@@ -96,7 +_,7 @@
+ import org.jspecify.annotations.Nullable;
+ import org.slf4j.Logger;
+ 
+-public class Item implements ItemLike, FeatureElement {
++public class Item implements ItemLike, FeatureElement, net.minecraftforge.common.extensions.IForgeItem {
+     public static final Codec<Holder<Item>> CODEC = BuiltInRegistries.ITEM
+         .holderByNameCodec()
+         .validate(item -> item.is(Items.AIR.builtInRegistryHolder()) ? DataResult.error(() -> "Item must not be minecraft:air") : DataResult.success(item));
+@@ -107,7 +_,7 @@
+             : DataResult.success(item)
+     );
+     private static final Logger LOGGER = LogUtils.getLogger();
+-    public static final Map<Block, Item> BY_BLOCK = Maps.newHashMap();
++    public static final Map<Block, Item> BY_BLOCK = net.minecraftforge.registries.GameData.ItemCallbacks.getBlockItemMap();
+     public static final Identifier BASE_ATTACK_DAMAGE_ID = Identifier.withDefaultNamespace("base_attack_damage");
+     public static final Identifier BASE_ATTACK_SPEED_ID = Identifier.withDefaultNamespace("base_attack_speed");
+     public static final int DEFAULT_MAX_STACK_SIZE = 64;
+@@ -146,6 +_,7 @@
+                 LOGGER.error("Item classes should end with Item and {} doesn't.", className);
+             }
+         }
++        initClient();
+     }
+ 
+     @Deprecated
+@@ -153,8 +_,15 @@
+         return this.builtInRegistryHolder;
+     }
+ 
++    @Nullable
++    private DataComponentMap builtComponents = null;
++
+     public DataComponentMap components() {
+-        return this.builtInRegistryHolder.components();
++        if (builtComponents == null) {
++            builtComponents = net.minecraftforge.common.ForgeHooks.gatherItemComponents(this, this.builtInRegistryHolder.components());
++        }
++
++        return builtComponents;
+     }
+ 
+     public int getDefaultMaxStackSize() {
+@@ -164,6 +_,7 @@
+     public void onUseTick(final Level level, final LivingEntity livingEntity, final ItemStack itemStack, final int ticksRemaining) {
+     }
+ 
++    /** @deprecated Forge: {@link net.minecraftforge.common.extensions.IForgeItem#onDestroyed(ItemEntity, DamageSource) Use damage source sensitive version} */
+     public void onDestroyed(final ItemEntity itemEntity) {
+     }
+ 
+@@ -282,6 +_,8 @@
+         return BuiltInRegistries.ITEM.wrapAsHolder(this).getRegisteredName();
+     }
+ 
++    /** Forge: use {@link ItemStack#getCraftingRemainder()}. */
++    @Deprecated
+     public final @Nullable ItemStackTemplate getCraftingRemainder() {
+         return this.craftingRemainingItem;
+     }
+@@ -374,6 +_,30 @@
+         return false;
+     }
+ 
++    private Object renderProperties;
++
++    /*
++       DO NOT CALL, IT WILL DISAPPEAR IN THE FUTURE
++       Call RenderProperties.get instead
++     */
++    public Object getRenderPropertiesInternal() {
++        return renderProperties;
++    }
++
++    private void initClient() {
++        // Minecraft instance isn't available in datagen, so don't call initializeClient if in datagen
++        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT && !net.minecraftforge.fml.loading.FMLLoader.getLaunchHandler().isData()) {
++            initializeClient(properties -> {
++                if (properties == this) {
++                    throw new IllegalStateException("Don't extend IItemRenderProperties in your item, use an anonymous class instead.");
++                }
++                this.renderProperties = properties;
++            });
++        }
++    }
++
++    public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) { }
++
+     public static class Properties {
+         private static final DependantName<Item, String> BLOCK_DESCRIPTION_ID = id -> Util.makeDescriptionId("block", id.identifier());
+         private static final DependantName<Item, String> ITEM_DESCRIPTION_ID = id -> Util.makeDescriptionId("item", id.identifier());
+@@ -722,6 +_,11 @@
+ 
+         boolean isPeaceful();
+ 
++        @Nullable
++        default Level level() {
++            return null;
++        }
++
+         static Item.TooltipContext of(final @Nullable Level level) {
+             return level == null ? EMPTY : new Item.TooltipContext() {
+                 @Override
+@@ -742,6 +_,11 @@
+                 @Override
+                 public boolean isPeaceful() {
+                     return level.getDifficulty() == Difficulty.PEACEFUL;
++                }
++
++                @Override
++                public Level level() {
++                    return level;
+                 }
+             };
+         }
