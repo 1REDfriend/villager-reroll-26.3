@@ -1,0 +1,36 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+
+[[mods]]
+modId = "villager-reroll"
+version = "${version}"
+displayName = "Villager Trade Reroller"
+authors = "joplayx"
+description = '''
+Automates the lectern-break/place loop until a librarian offers your chosen enchanted book.
+'''
+
+[[dependencies.villager-reroll]]
+modId = "minecraft"
+type = "required"
+versionRange = "[26.2,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.villager-reroll]]
+modId = "neoforge"
+type = "required"
+versionRange = "[26.2.0.0-beta,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.villager-reroll]]
+modId = "architectury"
+type = "required"
+versionRange = "[21.0.0,)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[mixins]]
+config = "villager-reroll.mixins.json"

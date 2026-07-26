@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "villager-reroll",
+	"version": "${version}",
+	"name": "Villager Trade Reroller",
+	"description": "Automates the lectern-break/place loop until a librarian offers your chosen enchanted book.",
+	"authors": [
+		"joplayx"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/villager-reroll/icon.png",
+	"environment": "client",
+	"accessWidener": "villager-reroll.accesswidener",
+	"entrypoints": {
+		"main": [
+			"com.joplayx.fabric.VillagerRerollFabric"
+		],
+		"client": [
+			"com.joplayx.fabric.VillagerRerollFabricClient"
+		],
+		"modmenu": [
+			"com.joplayx.fabric.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"villager-reroll.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*",
+		"architectury": "*",
+		"yet_another_config_lib_v3": "*",
+		"modmenu": "*"
+	}
+}

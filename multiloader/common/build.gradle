@@ -1,0 +1,16 @@
+loom {
+    accessWidenerPath = file("src/main/resources/villager-reroll.accesswidener")
+}
+
+dependencies {
+    // Needed for the Fabric @Environment annotations used to mark client-only code.
+    // Do NOT use any other Fabric-loader classes from common code.
+    implementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+
+    // Cross-platform abstraction API (events, registries, @ExpectPlatform, etc.)
+    modImplementation "dev.architectury:architectury:${rootProject.architectury_api_version}"
+}
+
+architectury {
+    common(rootProject.platforms.split(","))
+}

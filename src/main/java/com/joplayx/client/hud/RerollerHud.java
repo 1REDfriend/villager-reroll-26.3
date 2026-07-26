@@ -4,10 +4,14 @@ import com.joplayx.client.VillagerRerollClient;
 import com.joplayx.client.config.RerollerConfig;
 import com.joplayx.client.state.RerollController;
 import com.joplayx.client.state.RerollState;
+import com.joplayx.client.util.TradeUtil;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.CommonColors;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * HUD overlay for the Villager Trade Reroller.
@@ -15,7 +19,11 @@ import net.minecraft.util.CommonColors;
  * Implements HudElement by providing extractRenderState(GuiGraphicsExtractor, DeltaTracker).
  * Method name and signature confirmed from HudElement.java and HudTests.java in references.
  *
- * Uses graphics.text() and graphics.fill() — confirmed from HudTests.java reference.
+ * Shows one row per configured enchantment target, live-updated against the
+ * last read villager so it's clear at a glance which of your targets (e.g.
+ * mending + protection IV + unbreaking III) are currently satisfied together,
+ * plus a "Last Offer" row showing the last enchanted book actually seen so
+ * you can confirm the mod is reading trades even before anything matches.
  */
 public class RerollerHud {
 
@@ -26,8 +34,6 @@ public class RerollerHud {
 	private static final int LABEL_VALUE_GAP = 8;
 	private static final int SECTION_GAP = 3;
 
-	// Confirmed from HudTests.java: graphics.text(font, text, x, y, color)
-	// Uses CommonColors or raw ARGB int — confirmed from HudTests.java reference
 	private static final int COLOR_BG     = 0xCC0A0A0A; // dark translucent panel
 	private static final int COLOR_BORDER = 0x80FFAA00; // subtle gold accent border
 	private static final int COLOR_DIVIDER = 0x40FFFFFF; // faint separator line
@@ -39,10 +45,6 @@ public class RerollerHud {
 	private static final int COLOR_RED    = 0xFFFF5555;
 	private static final int COLOR_YELLOW = 0xFFFFFF55;
 
-	/**
-	 * Called every frame by HudElementRegistry.
-	 * Method name MUST be extractRenderState — confirmed from HudElement.java interface in references.
-	 */
 	public static void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker delta) {
 		RerollerConfig.Config cfg = RerollerConfig.get();
 		if (!cfg.hudEnabled) return;
@@ -67,29 +69,67 @@ public class RerollerHud {
 		String emergencyStopName = VillagerRerollClient.emergencyStopKey.getTranslatedKeyMessage().getString();
 		String setPositionName = VillagerRerollClient.setPositionKey.getTranslatedKeyMessage().getString();
 
-		String target = cfg.targetEnchantment.isEmpty() ? "not set" : cfg.targetEnchantment;
 		String lecternPos = cfg.hasLecternPos() ? cfg.lecternPosString() : "NOT SET (" + setPositionName + ")";
 
 		String header = "VILLAGER REROLLER";
 		String footer = startStopName + " Start/Stop    " + emergencyStopName + " Stop    " + setPositionName + " Set Pos";
 
-		String[] labels = { "Status", "Target", "Lectern", "Max Cost", "Attempts", "Last Seen" };
-		String[] values = {
-			ctrl.getStatusMessage(),
-			target,
-			lecternPos,
-			cfg.maxEmeraldCost + " emeralds",
-			String.valueOf(ctrl.getAttempts()),
-			ctrl.getLastTradeDescription()
-		};
-		int[] valueColors = {
-			statusColor,
-			COLOR_WHITE,
-			cfg.hasLecternPos() ? COLOR_GRAY : COLOR_RED,
-			COLOR_GRAY,
-			COLOR_WHITE,
-			COLOR_GRAY
-		};
+		// Fixed rows first
+		List<String> labels = new ArrayList<>(List.of("Status", "Lectern", "Attempts"));
+		List<String> values = new ArrayList<>(List.of(
+				ctrl.getStatusMessage(),
+				lecternPos,
+				String.valueOf(ctrl.getAttempts())
+		));
+		List<Integer> valueColors = new ArrayList<>(List.of(
+				statusColor,
+				cfg.hasLecternPos() ? COLOR_GRAY : COLOR_RED,
+				COLOR_WHITE
+		));
+
+		// One row per configured enchant target, matched against the last read
+		// villager's trades so multiple targets show their live found/not-found state.
+		List<TradeUtil.TargetStatus> lastStatuses = ctrl.getLastStatuses();
+		if (cfg.targets.isEmpty()) {
+			labels.add("Targets");
+			values.add("none configured");
+			valueColors.add(COLOR_RED);
+		} else {
+			for (RerollerConfig.EnchantTarget target : cfg.targets) {
+				String shortId = target.enchantmentId.contains(":")
+						? target.enchantmentId.substring(target.enchantmentId.indexOf(':') + 1)
+						: target.enchantmentId;
+				if (shortId.isEmpty()) shortId = "(not set)";
+
+				TradeUtil.TargetStatus match = lastStatuses.stream()
+						.filter(s -> s.target() == target)
+						.findFirst()
+						.orElse(null);
+
+				String value;
+				int color;
+				if (match == null) {
+					// Not checked yet this cycle - show the criteria plainly, no "checking..."
+					// spam repeated on every row (the Status row already says what's happening).
+					value = "Lv" + target.minLevel + "+, " + target.maxEmeraldCost + "g max";
+					color = COLOR_GRAY;
+				} else if (match.satisfied()) {
+					value = match.description();
+					color = COLOR_GREEN;
+				} else {
+					value = match.description();
+					color = COLOR_RED;
+				}
+
+				labels.add(shortId);
+				values.add(value);
+				valueColors.add(color);
+			}
+		}
+
+		labels.add("Last Offer");
+		values.add(ctrl.getLastOfferSeen().isEmpty() ? "-" : ctrl.getLastOfferSeen());
+		valueColors.add(COLOR_DIM);
 
 		// --- Measure ---
 		int labelWidth = 0;
@@ -97,19 +137,17 @@ public class RerollerHud {
 		int labelColW = labelWidth + LABEL_VALUE_GAP;
 
 		int contentWidth = Math.max(mc.font.width(header), mc.font.width(footer));
-		for (int i = 0; i < labels.length; i++) {
-			contentWidth = Math.max(contentWidth, labelColW + mc.font.width(values[i]));
+		for (int i = 0; i < labels.size(); i++) {
+			contentWidth = Math.max(contentWidth, labelColW + mc.font.width(values.get(i)));
 		}
 
-		int rowsHeight = labels.length * LINE_HEIGHT;
-		int contentHeight = LINE_HEIGHT                    // header
-				+ SECTION_GAP + 1 + SECTION_GAP            // divider
-				+ rowsHeight                                // body rows
-				+ SECTION_GAP + 1 + SECTION_GAP            // divider
-				+ LINE_HEIGHT;                               // footer
+		int rowsHeight = labels.size() * LINE_HEIGHT;
+		int contentHeight = LINE_HEIGHT
+				+ SECTION_GAP + 1 + SECTION_GAP
+				+ rowsHeight
+				+ SECTION_GAP + 1 + SECTION_GAP
+				+ LINE_HEIGHT;
 
-		// Vertically center the overlay on the left edge of the screen so it
-		// doesn't collide with other mods (e.g. coordinate/minimap HUDs) docked top-left.
 		int boxX = X;
 		int boxY = (graphics.guiHeight() - contentHeight) / 2;
 
@@ -118,13 +156,11 @@ public class RerollerHud {
 		int bgX2 = boxX + contentWidth + PADDING;
 		int bgY2 = boxY + contentHeight + PADDING;
 
-		// Accent border, then inset panel on top of it
 		graphics.fill(bgX1 - BORDER, bgY1 - BORDER, bgX2 + BORDER, bgY2 + BORDER, COLOR_BORDER);
 		graphics.fill(bgX1, bgY1, bgX2, bgY2, COLOR_BG);
 
 		int cursorY = boxY;
 
-		// Header, centered within the panel
 		int headerX = boxX + (contentWidth - mc.font.width(header)) / 2;
 		graphics.text(mc.font, header, headerX, cursorY, COLOR_GOLD);
 		cursorY += LINE_HEIGHT + SECTION_GAP;
@@ -132,10 +168,9 @@ public class RerollerHud {
 		graphics.fill(boxX, cursorY, boxX + contentWidth, cursorY + 1, COLOR_DIVIDER);
 		cursorY += 1 + SECTION_GAP;
 
-		// Body: aligned label/value columns
-		for (int i = 0; i < labels.length; i++) {
-			graphics.text(mc.font, labels[i], boxX, cursorY, COLOR_GRAY);
-			graphics.text(mc.font, values[i], boxX + labelColW, cursorY, valueColors[i]);
+		for (int i = 0; i < labels.size(); i++) {
+			graphics.text(mc.font, labels.get(i), boxX, cursorY, COLOR_GRAY);
+			graphics.text(mc.font, values.get(i), boxX + labelColW, cursorY, valueColors.get(i));
 			cursorY += LINE_HEIGHT;
 		}
 
@@ -143,7 +178,6 @@ public class RerollerHud {
 		graphics.fill(boxX, cursorY, boxX + contentWidth, cursorY + 1, COLOR_DIVIDER);
 		cursorY += 1 + SECTION_GAP;
 
-		// Footer, centered and dimmed
 		int footerX = boxX + (contentWidth - mc.font.width(footer)) / 2;
 		graphics.text(mc.font, footer, footerX, cursorY, COLOR_DIM);
 	}

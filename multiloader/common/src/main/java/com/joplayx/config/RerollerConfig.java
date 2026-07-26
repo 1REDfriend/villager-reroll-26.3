@@ -1,9 +1,9 @@
-package com.joplayx.client.config;
+package com.joplayx.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.joplayx.VillagerReroll;
-import net.fabricmc.loader.api.FabricLoader;
+import com.joplayx.platform.PlatformHelper;
 import net.minecraft.core.BlockPos;
 
 import java.io.IOException;
@@ -11,14 +11,11 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 public class RerollerConfig {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path CONFIG_PATH = FabricLoader.getInstance()
-            .getConfigDir().resolve("villager-reroll.json");
+    private static final Path CONFIG_PATH = PlatformHelper.getConfigDir().resolve("villager-reroll.json");
 
     private static Config instance = new Config();
 
@@ -50,9 +47,22 @@ public class RerollerConfig {
     }
 
     public static class Config {
-        // Every enchantment the reroller must find on ONE villager's trades
-        // simultaneously before it stops. All of them, not just the first match.
-        public List<EnchantTarget> targets = new ArrayList<>();
+        // Target enchantments - comma-separated namespaced IDs, e.g.
+        // "minecraft:mending, minecraft:protection, minecraft:unbreaking"
+        // A trade matches if it offers ANY enchantment in this list.
+        public String targetEnchantments = "";
+        public int minLevel = 1;
+        public int maxEmeraldCost = 64;
+
+        /** Parses targetEnchantments into a clean list, ignoring blanks/whitespace. */
+        public java.util.List<String> targetList() {
+            java.util.List<String> out = new java.util.ArrayList<>();
+            for (String part : targetEnchantments.split(",")) {
+                String trimmed = part.trim();
+                if (!trimmed.isEmpty()) out.add(trimmed);
+            }
+            return out;
+        }
 
         // Lectern position stored as separate ints so YACL can edit them directly
         // Integer.MIN_VALUE means "not set"
@@ -106,26 +116,6 @@ public class RerollerConfig {
         public String lecternPosString() {
             if (!hasLecternPos()) return "Not set";
             return "X: " + lecternX + "  Y: " + lecternY + "  Z: " + lecternZ;
-        }
-    }
-
-    /**
-     * One enchantment the reroller should look for, with its own level/price criteria.
-     * A trade must meet ALL THREE (enchantment id, minLevel, maxEmeraldCost) to count
-     * as satisfying this target.
-     */
-    public static class EnchantTarget {
-        public String enchantmentId = "";
-        public int minLevel = 1;
-        public int maxEmeraldCost = 64;
-
-        public EnchantTarget() {
-        }
-
-        public EnchantTarget(String enchantmentId, int minLevel, int maxEmeraldCost) {
-            this.enchantmentId = enchantmentId;
-            this.minLevel = minLevel;
-            this.maxEmeraldCost = maxEmeraldCost;
         }
     }
 }

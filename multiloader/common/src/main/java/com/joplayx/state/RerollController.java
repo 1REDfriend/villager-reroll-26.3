@@ -1,11 +1,11 @@
-package com.joplayx.client.state;
+package com.joplayx.state;
 
+import com.joplayx.ModKeybinds;
 import com.joplayx.VillagerReroll;
-import com.joplayx.client.VillagerRerollClient;
-import com.joplayx.client.config.RerollerConfig;
-import com.joplayx.client.util.HotbarUtil;
-import com.joplayx.client.util.OffersStore;
-import com.joplayx.client.util.TradeUtil;
+import com.joplayx.config.RerollerConfig;
+import com.joplayx.util.HotbarUtil;
+import com.joplayx.util.OffersStore;
+import com.joplayx.util.TradeUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -27,21 +27,15 @@ import net.minecraft.world.phys.Vec3;
 import java.util.List;
 
 /**
- * State machine driving the reroll loop.
- *
- * API references confirmed from:
- *  - VillagerRoller.java (working meteor mod): Villager package, interact() signature,
- *    profession check, EnchantmentHelper usage
- *  - KeyMappingsTest.java: tick event pattern
- *  - HudTests.java: rendering pattern
+ * State machine driving the reroll loop. Loader-agnostic — lives in common.
  */
 public class RerollController {
+
+	public static final RerollController INSTANCE = new RerollController();
 
 	private RerollState state = RerollState.IDLE;
 	private String statusMessage = "Idle";
 	private String lastTradeDescription = "";
-	private String lastOfferSeen = "";
-	private java.util.List<TradeUtil.TargetStatus> lastStatuses = java.util.List.of();
 	private int attempts = 0;
 	private String errorReason = "";
 
@@ -57,8 +51,6 @@ public class RerollController {
 	public RerollState getState() { return state; }
 	public String getStatusMessage() { return statusMessage; }
 	public String getLastTradeDescription() { return lastTradeDescription; }
-	public String getLastOfferSeen() { return lastOfferSeen; }
-	public java.util.List<TradeUtil.TargetStatus> getLastStatuses() { return lastStatuses; }
 	public int getAttempts() { return attempts; }
 	public String getErrorReason() { return errorReason; }
 
@@ -88,12 +80,12 @@ public class RerollController {
 				if (!HotbarUtil.hasItemInHotbar(player, Items.LECTERN)) {
 					stop(client, "No lectern in hotbar!"); return;
 				}
-				if (RerollerConfig.get().targets.isEmpty()) {
+				if (RerollerConfig.get().targetList().isEmpty()) {
 					stop(client, "No target enchantments set in config!"); return;
 				}
 				if (!RerollerConfig.get().hasLecternPos()) {
 				stop(client, "No lectern position set! Use " +
-						VillagerRerollClient.setPositionKey.getTranslatedKeyMessage().getString() +
+						ModKeybinds.SET_POSITION.getTranslatedKeyMessage().getString() +
 						" key or Mod Menu config."); return;
 				}
 				Villager v = findNearestVillager(player, level);
@@ -128,9 +120,6 @@ public class RerollController {
 				}
 
 				if (entity instanceof Villager villager) {
-					// Profession check confirmed from working mod (VillagerRoller.java line 895)
-					// unwrapKey() returns ResourceKey<VillagerProfession>
-					// "none" path = unemployed/no profession
 					villager.getVillagerData().profession().unwrapKey().ifPresent(profKey -> {
 					if (!profKey.identifier().getPath().equals("none")) {
 							setState(RerollState.OPEN_VILLAGER, "Librarian found! Opening trades...", 10);
@@ -149,7 +138,6 @@ public class RerollController {
 					stop(client, "Villager disappeared!"); return;
 				}
 				if (client.gameMode != null) {
-					// 4-arg interact() confirmed from working mod (VillagerRoller.java)
 					EntityHitResult entityHit = new EntityHitResult(entity);
 					client.gameMode.interact(player, entity, entityHit, InteractionHand.MAIN_HAND);
 				}
@@ -157,7 +145,6 @@ public class RerollController {
 			}
 
 		case WAIT_FOR_SCREEN -> {
-				// Wait for the packet mixin to populate OffersStore
 				if (OffersStore.get() != null) {
 					setState(RerollState.READ_TRADES, "Reading trades...", 2);
 				} else {
@@ -168,35 +155,14 @@ public class RerollController {
 			case READ_TRADES -> {
 				TradeUtil.TradeResult result = TradeUtil.checkTrades(RerollerConfig.get());
 				attempts++;
-				lastStatuses = result.statuses();
-				lastOfferSeen = result.lastOfferSeen();
+				lastTradeDescription = result.description();
 
-				if (result.anyFound()) {
-					RerollerConfig.Config cfg = RerollerConfig.get();
-					RerollerConfig.EnchantTarget found = result.foundTarget();
-					String desc = result.descriptionFor(found);
-					lastTradeDescription = desc;
-
-					setState(RerollState.FOUND, "FOUND! " + desc, 0);
+				if (result.found()) {
+					setState(RerollState.FOUND, "FOUND! " + result.description(), 0);
 					player.closeContainer();
 					player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-
-					// Wishlist model: you can't hold multiple simultaneous matches on one
-					// villager (rerolling wipes the whole trade list), so the first target
-					// found stops the reroller AND gets removed from the list - the next
-					// time you start it (presumably on a different villager), it's only
-					// looking for whatever targets are left.
-					cfg.targets.remove(found);
-					RerollerConfig.save();
-
-					if (cfg.targets.isEmpty()) {
-						player.sendSystemMessage(Component.literal(
-								"[Reroller] Found " + desc + " after " + attempts + " attempt(s)! All targets found - list is now empty."));
-					} else {
-						player.sendSystemMessage(Component.literal(
-								"[Reroller] Found " + desc + " after " + attempts + " attempt(s)! " +
-								cfg.targets.size() + " target(s) left - move to a new villager and start again."));
-					}
+					player.sendSystemMessage(Component.literal(
+							"[Reroller] Found " + result.description() + " after " + attempts + " attempt(s)!"));
 				} else {
 					setState(RerollState.CLOSE_SCREEN, "No match — closing...", 2);
 				}
@@ -208,7 +174,7 @@ public class RerollController {
 			}
 
 			case WAIT_AFTER_CLOSE -> {
-				breakTicks = 0; // Reset so BREAK_LECTERN starts fresh on tick 0
+				breakTicks = 0;
 				setState(RerollState.BREAK_LECTERN, "Breaking lectern...", 2);
 			}
 
@@ -216,7 +182,6 @@ public class RerollController {
 				BlockPos pos = RerollerConfig.get().lecternPos();
 				statusMessage = "Breaking lectern...";
 
-				// Block already gone — move on
 				if (level.getBlockState(pos).isAir()) {
 					breakTicks = 0;
 					if (client.gameMode != null) client.gameMode.stopDestroyBlock();
@@ -226,11 +191,9 @@ public class RerollController {
 
 				if (client.gameMode != null) {
 					if (breakTicks == 0) {
-						// First tick — select axe once and start breaking
 						HotbarUtil.selectBestAxe(player);
 						client.gameMode.startDestroyBlock(pos, Direction.UP);
 					} else {
-						// Subsequent ticks — continue breaking without re-selecting
 						client.gameMode.continueDestroyBlock(pos, Direction.UP);
 					}
 				}
@@ -261,7 +224,7 @@ public class RerollController {
 		OffersStore.clear();
 		setState(RerollState.PRE_CHECK, "Starting...", 2);
 		client.player.sendSystemMessage(Component.literal("[Reroller] Started. Press " +
-				VillagerRerollClient.emergencyStopKey.getTranslatedKeyMessage().getString() +
+				ModKeybinds.EMERGENCY_STOP.getTranslatedKeyMessage().getString() +
 				" to emergency stop."));
 	}
 
@@ -284,8 +247,6 @@ public class RerollController {
 	}
 
 	private Villager findNearestVillager(LocalPlayer player, ClientLevel level) {
-		// Villager package: net.minecraft.world.entity.npc.villager.Villager
-		// Confirmed from working mod (VillagerRoller.java import line)
 		AABB box = player.getBoundingBox().inflate(6.0);
 		List<Entity> entities = level.getEntities(player, box,
 				e -> e instanceof Villager && e.isAlive());

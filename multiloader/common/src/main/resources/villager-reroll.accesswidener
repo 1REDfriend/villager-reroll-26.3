@@ -1,0 +1,4 @@
+accessWidener v2 official
+
+# Allow writing to Inventory.selected to change the player's selected hotbar slot
+accessible field net/minecraft/world/entity/player/Inventory selected I

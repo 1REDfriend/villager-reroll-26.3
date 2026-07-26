@@ -1,0 +1,44 @@
+plugins {
+    id "architectury-plugin" version "${architectury_plugin_version}"
+    id "dev.architectury.loom" version "${architectury_loom_version}" apply false
+}
+
+architectury {
+    minecraft = rootProject.minecraft_version
+}
+
+subprojects {
+    apply plugin: "dev.architectury.loom"
+
+    dependencies {
+        minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+        // Confirmed required after a real build failure ("Configuration 'mappings' has
+        // no dependencies") - my earlier assumption that this could be omitted was wrong.
+        // officialMojangMappings() is the correct call for MC 26.1+, which ships obfuscation-free.
+        mappings loom.officialMojangMappings()
+    }
+}
+
+allprojects {
+    apply plugin: "java"
+    apply plugin: "architectury-plugin"
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = "UTF-8"
+        options.release = 25
+    }
+
+    group = rootProject.maven_group
+    version = rootProject.mod_version
+
+    repositories {
+        maven { url "https://maven.terraformersmc.com/releases/" } // Mod Menu, YACL (Fabric)
+        maven { url "https://maven.isxander.dev/releases/" }        // YACL (NeoForge)
+    }
+}
