@@ -1,6 +1,8 @@
 package com.joplayx.client.config;
 
 import dev.isxander.yacl3.api.*;
+import dev.isxander.yacl3.api.controller.EnumControllerBuilder;
+import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerFieldControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
@@ -49,17 +51,11 @@ public class RerollerConfigScreen {
                                         : "Set to current position"
                                 ))
                                 .action((screen, opt) -> {
-                                if (mc.player != null && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult blockHit) {
-                                BlockPos pos = blockHit.getBlockPos();
-                                cfg.setLecternPos(pos);
-                                RerollerConfig.save();
-                                mc.gui.setScreen(create(parent));
-                                } else if (mc.player != null) {
-                                 mc.player.sendSystemMessage(Component.literal(
-                                    "[Reroller] Aim at a block first, then click this button."
-							));
-						}
-					})
+                                    if (mc.player == null) return;
+                                    String message = VillagerRerollClient.setLecternFromCrosshair(mc);
+                                    if (cfg.hasLecternPos()) mc.gui.setScreen(create(parent));
+                                    mc.player.sendSystemMessage(Component.literal(message));
+                                })
                                 .build()
                         )
 
@@ -170,6 +166,30 @@ public class RerollerConfigScreen {
                                 .build()
                         )
 
+                        .option(Option.<Boolean>createBuilder()
+                                .name(Component.literal("Walk To Pick Up Lectern"))
+                                .description(OptionDescription.of(Component.literal(
+                                        "If the broken lectern lands out of pickup range, walk over\n" +
+                                        "(sneaking, so you can't fall off edges), pick it up, then\n" +
+                                        "walk back to where you were standing.\n\n" +
+                                        "Default: on. Command: /reroll pickup true|false"
+                                )))
+                                .binding(true, () -> cfg.autoPickup, val -> cfg.autoPickup = val)
+                                .controller(TickBoxControllerBuilder::create)
+                                .build()
+                        )
+
+                        .option(Option.<Integer>createBuilder()
+                                .name(Component.literal("Villager Search Radius"))
+                                .description(OptionDescription.of(Component.literal(
+                                        "How far to look for the nearest villager when none is selected.\n\n" +
+                                        "Default: 6 blocks. Command: /reroll radius <1-16>"
+                                )))
+                                .binding(6, () -> cfg.searchRadius, val -> cfg.searchRadius = val)
+                                .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(1, 16).step(1))
+                                .build()
+                        )
+
                         .build()
                 )
 
@@ -183,11 +203,58 @@ public class RerollerConfigScreen {
                         .option(Option.<Boolean>createBuilder()
                                 .name(Component.literal("Show HUD Overlay"))
                                 .description(OptionDescription.of(Component.literal(
-                                        "Show the status overlay in the top-left corner\n" +
-                                        "while the reroller is running.\n\n" +
-                                        "Displays: status, target, attempt count, last trade seen."
+                                        "Show the status overlay while the reroller is running.\n\n" +
+                                        "Displays: status, target, attempt count, last trade seen.\n" +
+                                        "Default: on. Command: /reroll hud on|off"
                                 )))
                                 .binding(true, () -> cfg.hudEnabled, val -> cfg.hudEnabled = val)
+                                .controller(TickBoxControllerBuilder::create)
+                                .build()
+                        )
+
+                        .option(Option.<Float>createBuilder()
+                                .name(Component.literal("HUD Scale"))
+                                .description(OptionDescription.of(Component.literal(
+                                        "Size of the HUD overlay.\n\n" +
+                                        "Default: 1.0. Command: /reroll hud scale <0.5-2.0>"
+                                )))
+                                .binding(1.0f, () -> cfg.hudScale, val -> cfg.hudScale = val)
+                                .controller(opt -> FloatSliderControllerBuilder.create(opt)
+                                        .range(RerollerConfig.MIN_HUD_SCALE, RerollerConfig.MAX_HUD_SCALE)
+                                        .step(0.05f))
+                                .build()
+                        )
+
+                        .option(Option.<RerollerConfig.HudCorner>createBuilder()
+                                .name(Component.literal("HUD Position"))
+                                .description(OptionDescription.of(Component.literal(
+                                        "Which edge/corner of the screen the HUD sits in.\n\n" +
+                                        "Default: MIDDLE_LEFT. Command: /reroll hud pos <corner>"
+                                )))
+                                .binding(RerollerConfig.HudCorner.MIDDLE_LEFT, () -> cfg.hudCorner, val -> cfg.hudCorner = val)
+                                .controller(opt -> EnumControllerBuilder.create(opt).enumClass(RerollerConfig.HudCorner.class))
+                                .build()
+                        )
+
+                        .option(Option.<Boolean>createBuilder()
+                                .name(Component.literal("Compact HUD"))
+                                .description(OptionDescription.of(Component.literal(
+                                        "Show only a single status line instead of the full panel.\n\n" +
+                                        "Default: off. Command: /reroll hud compact true|false"
+                                )))
+                                .binding(false, () -> cfg.hudCompact, val -> cfg.hudCompact = val)
+                                .controller(TickBoxControllerBuilder::create)
+                                .build()
+                        )
+
+                        .option(Option.<Boolean>createBuilder()
+                                .name(Component.literal("Outline Selected Villager"))
+                                .description(OptionDescription.of(Component.literal(
+                                        "Draw a glowing outline around the villager you selected.\n" +
+                                        "Only visible to you.\n\n" +
+                                        "Default: on. Command: /reroll highlight true|false"
+                                )))
+                                .binding(true, () -> cfg.highlightVillager, val -> cfg.highlightVillager = val)
                                 .controller(TickBoxControllerBuilder::create)
                                 .build()
                         )

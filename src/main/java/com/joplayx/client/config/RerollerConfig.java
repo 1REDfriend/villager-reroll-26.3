@@ -20,6 +20,9 @@ public class RerollerConfig {
     private static final Path CONFIG_PATH = FabricLoader.getInstance()
             .getConfigDir().resolve("villager-reroll.json");
 
+    public static final float MIN_HUD_SCALE = 0.5f;
+    public static final float MAX_HUD_SCALE = 2.0f;
+
     private static Config instance = new Config();
 
     public static Config get() { return instance; }
@@ -29,6 +32,7 @@ public class RerollerConfig {
             try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
                 instance = GSON.fromJson(reader, Config.class);
                 if (instance == null) instance = new Config();
+                instance.sanitize();
                 VillagerReroll.LOGGER.info("[Reroller] Config loaded.");
             } catch (IOException e) {
                 VillagerReroll.LOGGER.error("[Reroller] Failed to load config.", e);
@@ -64,8 +68,31 @@ public class RerollerConfig {
         public int closeDelayTicks = 20;
         public int retryDelayTicks = 40;
 
+        // Villager search radius (blocks) used when no villager has been selected
+        public int searchRadius = 6;
+
         // Display
         public boolean hudEnabled = true;
+        public float hudScale = 1.0f;
+        public HudCorner hudCorner = HudCorner.MIDDLE_LEFT;
+        public boolean hudCompact = false;
+        public boolean highlightVillager = true;
+
+        // Walk over to a lectern that dropped out of pickup range, then walk back
+        public boolean autoPickup = true;
+
+        /**
+         * Older config files predate the newer fields, so Gson leaves them null/zero.
+         * Pull everything back into a sane range after loading.
+         */
+        void sanitize() {
+            if (targets == null) targets = new ArrayList<>();
+            if (hudCorner == null) hudCorner = HudCorner.MIDDLE_LEFT;
+            if (hudScale < MIN_HUD_SCALE || hudScale > MAX_HUD_SCALE) hudScale = 1.0f;
+            if (searchRadius < 1 || searchRadius > 16) searchRadius = 6;
+            closeDelayTicks = Math.clamp(closeDelayTicks, 5, 100);
+            retryDelayTicks = Math.clamp(retryDelayTicks, 10, 200);
+        }
 
         /**
          * Returns the lectern BlockPos, or null if not set.
@@ -106,6 +133,15 @@ public class RerollerConfig {
         public String lecternPosString() {
             if (!hasLecternPos()) return "Not set";
             return "X: " + lecternX + "  Y: " + lecternY + "  Z: " + lecternZ;
+        }
+    }
+
+    /** Where the HUD panel is anchored on screen. */
+    public enum HudCorner {
+        TOP_LEFT, MIDDLE_LEFT, BOTTOM_LEFT, TOP_RIGHT, MIDDLE_RIGHT, BOTTOM_RIGHT;
+
+        public boolean isRight() {
+            return this == TOP_RIGHT || this == MIDDLE_RIGHT || this == BOTTOM_RIGHT;
         }
     }
 

@@ -14,5 +14,7 @@ public enum RerollState {
     BREAK_LECTERN,
     WAIT_BREAK_COMPLETE,
     WAIT_BEFORE_RETRY,
+    WALK_TO_ITEM,
+    WALK_BACK,
     ERROR
 }

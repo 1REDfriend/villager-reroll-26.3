@@ -61,9 +61,14 @@ public class RerollerHud {
 			case ERROR -> COLOR_RED;
 			case WAIT_FOR_PROFESSION, WAIT_FOR_SCREEN,
 				 WAIT_AFTER_CLOSE, WAIT_BEFORE_RETRY,
-				 WAIT_BREAK_COMPLETE -> COLOR_YELLOW;
+				 WAIT_BREAK_COMPLETE, WALK_TO_ITEM, WALK_BACK -> COLOR_YELLOW;
 			default -> COLOR_WHITE;
 		};
+
+		if (cfg.hudCompact) {
+			extractCompact(graphics, mc, cfg, ctrl, statusColor);
+			return;
+		}
 
 		String startStopName = VillagerRerollClient.startStopKey.getTranslatedKeyMessage().getString();
 		String emergencyStopName = VillagerRerollClient.emergencyStopKey.getTranslatedKeyMessage().getString();
@@ -148,8 +153,11 @@ public class RerollerHud {
 				+ SECTION_GAP + 1 + SECTION_GAP
 				+ LINE_HEIGHT;
 
-		int boxX = X;
-		int boxY = (graphics.guiHeight() - contentHeight) / 2;
+		float scale = cfg.hudScale;
+		graphics.pose().pushMatrix();
+		graphics.pose().scale(scale, scale);
+		int boxX = anchorX(cfg.hudCorner, graphics.guiWidth() / scale, contentWidth);
+		int boxY = anchorY(cfg.hudCorner, graphics.guiHeight() / scale, contentHeight);
 
 		int bgX1 = boxX - PADDING;
 		int bgY1 = boxY - PADDING;
@@ -180,5 +188,42 @@ public class RerollerHud {
 
 		int footerX = boxX + (contentWidth - mc.font.width(footer)) / 2;
 		graphics.text(mc.font, footer, footerX, cursorY, COLOR_DIM);
+		graphics.pose().popMatrix();
+	}
+
+	/** One-line panel: just the status and attempt count, for when the full panel is in the way. */
+	private static void extractCompact(GuiGraphicsExtractor graphics, Minecraft mc,
+									   RerollerConfig.Config cfg, RerollController ctrl, int statusColor) {
+		String label = "Reroller #" + ctrl.getAttempts() + "  ";
+		String status = ctrl.getStatusMessage();
+		int contentWidth = mc.font.width(label) + mc.font.width(status);
+		int contentHeight = LINE_HEIGHT - 1;
+
+		float scale = cfg.hudScale;
+		graphics.pose().pushMatrix();
+		graphics.pose().scale(scale, scale);
+		int boxX = anchorX(cfg.hudCorner, graphics.guiWidth() / scale, contentWidth);
+		int boxY = anchorY(cfg.hudCorner, graphics.guiHeight() / scale, contentHeight);
+
+		int pad = PADDING / 2;
+		graphics.fill(boxX - pad, boxY - pad, boxX + contentWidth + pad, boxY + contentHeight + pad, COLOR_BG);
+		graphics.text(mc.font, label, boxX, boxY, COLOR_GOLD);
+		graphics.text(mc.font, status, boxX + mc.font.width(label), boxY, statusColor);
+		graphics.pose().popMatrix();
+	}
+
+	// Margin keeps the panel's padding and border on screen at every corner
+	private static final int MARGIN = X + PADDING + BORDER;
+
+	private static int anchorX(RerollerConfig.HudCorner corner, float screenWidth, int contentWidth) {
+		return corner.isRight() ? (int) screenWidth - contentWidth - MARGIN : MARGIN;
+	}
+
+	private static int anchorY(RerollerConfig.HudCorner corner, float screenHeight, int contentHeight) {
+		return switch (corner) {
+			case TOP_LEFT, TOP_RIGHT -> MARGIN;
+			case BOTTOM_LEFT, BOTTOM_RIGHT -> (int) screenHeight - contentHeight - MARGIN;
+			default -> ((int) screenHeight - contentHeight) / 2;
+		};
 	}
 }

@@ -39,7 +39,7 @@ public class EnchantTargetListScreen extends Screen {
 
     /** Fallback list used when no world is loaded yet (e.g. opened from the main menu),
      *  so autocomplete still works even without live registry access. */
-    private static final List<String> FALLBACK_ENCHANTMENT_IDS = List.of(
+    public static final List<String> FALLBACK_ENCHANTMENT_IDS = List.of(
             "minecraft:aqua_affinity", "minecraft:bane_of_arthropods", "minecraft:blast_protection",
             "minecraft:breach", "minecraft:channeling", "minecraft:curse_of_binding", "minecraft:curse_of_vanishing",
             "minecraft:density", "minecraft:depth_strider", "minecraft:efficiency", "minecraft:feather_falling",
