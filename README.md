@@ -111,6 +111,12 @@ The jar ends up in `build/libs/`.
 
 The original mod, the reroll state machine and the config screens are by [Joplayz](https://github.com/Joplayz) ([villager-reroll-26.1.2](https://github.com/Joplayz/villager-reroll-26.1.2)). This fork adds the 26.3 port, the survival fixes and the features listed above. If you're on 26.1.2 or 26.2, use the original.
 
+## Support
+
+If this mod saved you a few hundred lecterns, you can [buy me a coffee](https://buymeacoffee.com/tongtongkok).
+
+<a href="https://buymeacoffee.com/tongtongkok"><img width="200" height="200" alt="Buy Me a Coffee QR code" src="https://github.com/user-attachments/assets/4034910a-9019-498d-a3e7-85d96b789e5e" /></a>
+
 ## License
 
 MIT, same as the original. See [LICENSE](LICENSE). The original copyright notice is kept.
